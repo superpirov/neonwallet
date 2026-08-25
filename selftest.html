@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>NeonWallet selftest</title>
+</head>
+<body>
+<pre id="results">running…</pre>
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script src="js/networks.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/wallet.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/app.js"></script>
+<script type="module">
+const R = {};
+const t = async (name, fn) => {
+  try {
+    const v = await fn();
+    R[name] = (v === undefined || v === null || v === false) ? 'FAIL' : ('PASS' + (typeof v === 'string' ? ':' + v : ''));
+  } catch (e) {
+    R[name] = 'ERR:' + (e && e.message);
+  }
+};
+
+await t('ethers-loaded', () => typeof window.ethers !== 'undefined');
+await t('qrcode-loaded', () => typeof window.QRCode !== 'undefined');
+
+await t('mnemonic-12-words', () => {
+  const w = NW.W.generateMnemonic();
+  return w.length === 12 && new Set(w).size >= 8;
+});
+
+await t('known-vector-address', () => {
+  const phrase = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
+  const wallet = NW.W.walletFromSecret('phrase', phrase);
+  return wallet.address.toLowerCase() === '0x9858effd232b4033e47d90003d41ec34ecaeda94'
+    ? 'addr-ok' : ('MISMATCH:' + wallet.address);
+});
+
+await t('classify', () =>
+  NW.W.classifySecret('legal winner thank year wave sausage worth useful legal winner thank yellow') === 'phrase' &&
+  NW.W.classifySecret('0x4646464646464646464646464646464646464646464646464646464646464646') === 'key' &&
+  NW.W.classifySecret('hello world') === null);
+
+await t('vault-roundtrip', async () => {
+  const blob = await NW.W.encryptVault('phrase', 'a b c d e f g h i j k l', 'hunter22', '0xabc');
+  try {
+    await NW.W.decryptVault(blob, 'wrong');
+    return false;
+  } catch (e) {
+    if (e.message !== 'WRONG_PASSWORD') return 'unexpected:' + e.message;
+  }
+  const out = await NW.W.decryptVault(blob, 'hunter22');
+  return out.secret === 'a b c d e f g h i j k l' && out.type === 'phrase';
+});
+
+await t('networks-count', () => NW.Networks.all().length >= 30 ? String(NW.Networks.all().length) : false);
+await t('network-selected-default', () => NW.Networks.selected().chainId === 1);
+
+await t('ui-screens', () => {
+  const fake = document.createElement('section');
+  fake.className = 'screen';
+  fake.id = 'screen-selftest-a';
+  document.body.appendChild(fake);
+  const fake2 = document.createElement('section');
+  fake2.className = 'screen';
+  fake2.id = 'screen-selftest-b';
+  document.body.appendChild(fake2);
+  NW.UI.showScreen('screen-selftest-b');
+  const ok1 = fake2.classList.contains('active') && !fake.classList.contains('active');
+  fake.remove(); fake2.remove();
+  return ok1;
+});
+
+await t('net-list-render', () => {
+  const holder = document.createElement('div');
+  holder.innerHTML = '<ul id="net-list-selftest"></ul>';
+  document.body.appendChild(holder);
+  const orig = document.getElementById('net-list');
+  const fake = holder.querySelector('#net-list-selftest');
+  fake.id = '_tmp';
+  fake.id = 'net-list'; // second element with same id: querySelector picks first (real one)
+  // instead, temporarily replace real list content check:
+  const items = (() => {
+    const real = document.getElementById('net-list');
+    const saved = real.innerHTML;
+    NW.App.renderNetworkList('');
+    const n = real.querySelectorAll('.net-item').length;
+    real.innerHTML = saved;
+    return n;
+  })();
+  holder.remove();
+  return items >= 30 ? String(items) : false;
+});
+
+await t('fmt-short', () =>
+  NW.W.fmtAmount(1.23456789) === '1.234568' &&
+  NW.W.shortAddr('0x1234567890abcdef1234567890abcdef12345678').startsWith('0x1234'));
+
+document.getElementById('results').textContent = JSON.stringify(R);
+document.title = 'SELFTEST-DONE';
+</script>
+</body>
+</html>

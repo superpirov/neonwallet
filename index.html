@@ -1,1 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="description" content="NeonWallet — soft neon non-custodial multichain crypto wallet">
+<title>NeonWallet</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%236ee7c7'/%3E%3Cstop offset='.55' stop-color='%237fb2ff'/%3E%3Cstop offset='1' stop-color='%23b28bff'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x='4' y='4' width='56' height='56' rx='16' fill='%230a0c18'/%3E%3Crect x='4' y='4' width='56' height='56' rx='16' fill='none' stroke='url(%23g)' stroke-width='3'/%3E%3Cpath d='M22 44V20l20 24V20' fill='none' stroke='url(%23g)' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="bg-glow bg-glow--mint"></div>
+<div class="bg-glow bg-glow--violet"></div>
+<div class="bg-noise"></div>
 
+<main id="app" class="shell">
+
+  <!-- ================= WELCOME ================= -->
+  <section class="screen active" id="screen-welcome">
+    <div class="brand-block">
+      <div class="logo-mark" aria-hidden="true">
+        <svg viewBox="0 0 64 64"><path d="M22 44V20l20 24V20" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <h1 class="brand-name">Neon<span>Wallet</span></h1>
+      <p class="tagline">Your soft-glow gateway to&nbsp;30+ networks.<br>Non-custodial. Keys never leave your device.</p>
+    </div>
+    <div class="stack gap-12">
+      <button class="btn btn-primary btn-lg" id="btn-create">Create a new wallet</button>
+      <button class="btn btn-ghost btn-lg" id="btn-import">I already have a wallet</button>
+    </div>
+    <p class="foot-note">Encrypted locally · AES-256 · No tracking</p>
+  </section>
+
+  <!-- ================= CREATE PASSWORD ================= -->
+  <section class="screen" id="screen-create-pass">
+    <button class="icon-btn back-btn" data-nav="screen-welcome" aria-label="Back">&#8592;</button>
+    <div class="narrow-head">
+      <h2>Create password</h2>
+      <p>This password unlocks NeonWallet on this device. It cannot be recovered.</p>
+    </div>
+    <div class="form-stack">
+      <label class="field">
+        <span>New password</span>
+        <input type="password" id="pass-new" autocomplete="new-password" minlength="8" placeholder="At least 8 characters">
+        <em class="hint" id="pass-strength"></em>
+      </label>
+      <label class="field">
+        <span>Confirm password</span>
+        <input type="password" id="pass-confirm" autocomplete="new-password" placeholder="Repeat password">
+      </label>
+      <label class="check">
+        <input type="checkbox" id="pass-ack">
+        <i></i><span>I understand NeonWallet cannot recover this password for me.</span>
+      </label>
+    </div>
+    <button class="btn btn-primary btn-lg" id="btn-create-pass" disabled>Continue</button>
+  </section>
+
+  <!-- ================= SEED REVEAL ================= -->
+  <section class="screen" id="screen-seed">
+    <div class="narrow-head">
+      <h2>Your recovery phrase</h2>
+      <p>Write these 12 words down in exact order and keep them offline. Anyone with these words controls your funds.</p>
+    </div>
+    <div class="warn-card">
+      <span>&#9873;</span> Never share your phrase. NeonWallet support will <b>never</b> ask for it.
+    </div>
+    <ol class="seed-grid" id="seed-grid"></ol>
+    <div class="row-between">
+      <button class="btn btn-ghost btn-sm" id="btn-copy-seed">Copy phrase</button>
+      <span class="hint">Stored nowhere until you finish setup</span>
+    </div>
+    <button class="btn btn-primary btn-lg" id="btn-seed-done">I wrote it down</button>
+  </section>
+
+  <!-- ================= SEED VERIFY ================= -->
+  <section class="screen" id="screen-verify">
+    <div class="narrow-head">
+      <h2>Verify your phrase</h2>
+      <p>Tap the words in the correct order to rebuild your recovery phrase.</p>
+    </div>
+    <div class="verify-slots" id="verify-slots"></div>
+    <p class="verify-msg" id="verify-msg"></p>
+    <div class="verify-bank" id="verify-bank"></div>
+    <div class="row-gap">
+      <button class="btn btn-ghost" id="btn-verify-reset">Reset</button>
+      <button class="btn btn-primary grow" id="btn-verify-check" disabled>Check</button>
+    </div>
+  </section>
+
+  <!-- ================= IMPORT ================= -->
+  <section class="screen" id="screen-import">
+    <button class="icon-btn back-btn" data-nav="screen-welcome" aria-label="Back">&#8592;</button>
+    <div class="narrow-head">
+      <h2>Import wallet</h2>
+      <p>Paste your 12–24 word recovery phrase or a private key.</p>
+    </div>
+    <label class="field">
+      <span>Recovery phrase or private key</span>
+      <textarea id="import-input" rows="4" spellcheck="false" autocomplete="off"
+        placeholder="word1 word2 word3 …   — or —   0x…"></textarea>
+    </label>
+    <p class="import-status" id="import-status"></p>
+    <div class="warn-card warn-card--soft">
+      <span>&#9873;</span> Importing stores the wallet encrypted on this device only. We never see your keys.
+    </div>
+    <button class="btn btn-primary btn-lg" id="btn-import-next" disabled>Continue</button>
+  </section>
+
+  <!-- ================= UNLOCK ================= -->
+  <section class="screen" id="screen-unlock">
+    <div class="brand-block brand-block--tight">
+      <div class="logo-mark logo-mark--sm" aria-hidden="true">
+        <svg viewBox="0 0 64 64"><path d="M22 44V20l20 24V20" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <h2>Welcome back</h2>
+    </div>
+    <div class="addr-chip" id="unlock-addr"></div>
+    <div class="form-stack">
+      <label class="field">
+        <span>Password</span>
+        <input type="password" id="unlock-pass" autocomplete="current-password" placeholder="Enter your password">
+      </label>
+    </div>
+    <button class="btn btn-primary btn-lg" id="btn-unlock">Unlock</button>
+    <button class="link-btn" id="btn-forget">Use a different wallet</button>
+  </section>
+
+  <!-- ================= MAIN ================= -->
+  <section class="screen" id="screen-main">
+    <header class="topbar">
+      <button class="pill pill-net" id="btn-network" title="Switch network">
+        <i class="net-dot" id="net-dot"></i><span id="net-name">Ethereum</span><b class="chev">&#9662;</b>
+      </button>
+      <button class="pill pill-account" id="account-pill" title="Copy address">
+        <i class="avatar" id="avatar"></i><span id="addr-short">0x0000…0000</span>
+      </button>
+      <button class="icon-btn" id="btn-settings" aria-label="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+    </header>
+
+    <div class="banner" id="banner-backup" hidden>
+      <span>&#9873;</span>
+      <div>Back up your recovery phrase to keep your funds safe.</div>
+      <button class="mini-link" id="btn-banner-backup">Back up</button>
+    </div>
+
+    <div class="balance-card" id="balance-card">
+      <span class="net-badge" id="balance-net">Ethereum</span>
+      <div class="balance-main"><span id="balance-value">—</span><small id="balance-symbol">ETH</small></div>
+      <div class="balance-addr" id="balance-addr">0x0000…0000</div>
+    </div>
+
+    <nav class="actions-row">
+      <button class="action" id="btn-receive">
+        <span class="action-ic action-ic--mint">&#8595;</span>Receive
+      </button>
+      <button class="action" id="btn-send">
+        <span class="action-ic action-ic--violet">&#8593;</span>Send
+      </button>
+      <button class="action action--soon" disabled title="Coming soon">
+        <span class="action-ic action-ic--rose">&#8646;</span>Swap
+      </button>
+      <button class="action action--soon" disabled title="Coming soon">
+        <span class="action-ic action-ic--blue">+</span>Buy
+      </button>
+    </nav>
+
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-tab="tokens">Tokens</button>
+      <button class="tab" data-tab="activity">Activity</button>
+    </nav>
+
+    <section class="tabpane active" id="tab-tokens">
+      <ul class="list" id="token-list"></ul>
+      <button class="btn btn-dashed" id="btn-add-token">+ Add custom token</button>
+    </section>
+
+    <section class="tabpane" id="tab-activity">
+      <ul class="list" id="tx-list"></ul>
+      <div class="empty" id="tx-empty">No transactions yet.<br>Your activity on this network will appear here.</div>
+    </section>
+  </section>
+
+  <!-- ================= MODALS ================= -->
+  <div class="modal-backdrop" id="modal-networks">
+    <div class="modal">
+      <header class="modal-head"><h3>Select network</h3><button class="icon-btn modal-close" aria-label="Close">&#10005;</button></header>
+      <input class="search" id="net-search" type="search" placeholder="Search network…" autocomplete="off">
+      <ul class="net-list scroll-y" id="net-list"></ul>
+      <button class="btn btn-ghost" id="btn-net-add">Add custom network</button>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="modal-addnet">
+    <div class="modal">
+      <header class="modal-head"><h3>Add custom network</h3><button class="icon-btn modal-close" aria-label="Close">&#10005;</button></header>
+      <div class="form-stack">
+        <label class="field"><span>RPC URL *</span><input id="an-rpc" type="url" placeholder="https://your-node.example"></label>
+        <label class="field"><span>Chain ID *</span><input id="an-chainid" type="text" inputmode="numeric" placeholder="e.g. 12345"></label>
+        <label class="field"><span>Network name *</span><input id="an-name" type="text" placeholder="My Network"></label>
+        <label class="field"><span>Currency symbol *</span><input id="an-symbol" type="text" placeholder="NET" maxlength="8"></label>
+        <label class="field"><span>Block explorer URL</span><input id="an-explorer" type="url" placeholder="https://explorer.example (optional)"></label>
+      </div>
+      <p class="op-status" id="an-status"></p>
+      <button class="btn btn-primary btn-lg" id="btn-an-save">Test &amp; save</button>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="modal-receive">
+    <div class="modal modal--center">
+      <header class="modal-head"><h3>Receive</h3><button class="icon-btn modal-close" aria-label="Close">&#10005;</button></header>
+      <div class="qr-tile"><div id="qr-box"></div></div>
+      <p class="hint center">Your address on <b id="receive-net">Ethereum</b></p>
+      <div class="addr-full" id="recv-addr"></div>
+      <button class="btn btn-primary" id="btn-copy-addr">Copy address</button>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="modal-send">
+    <div class="modal">
+      <header class="modal-head"><h3 id="send-title">Send</h3><button class="icon-btn modal-close" aria-label="Close">&#10005;</button></header>
+      <div class="asset-chip" id="send-asset"></div>
+      <div class="form-stack">
+        <label class="field"><span>To</span><input id="send-to" type="text" spellcheck="false" autocomplete="off" placeholder="0x…"></label>
+        <label class="field field-amount">
+          <span>Amount</span>
+          <input id="send-amount" type="text" inputmode="decimal" autocomplete="off" placeholder="0.0">
+          <button class="mini-link" id="btn-max">MAX</button>
+        </label>
+      </div>
+      <dl class="kv" id="send-fee-box">
+        <dt>Network fee</dt><dd id="send-fee">—</dd>
+      </dl>
+      <p class="op-status" id="send-status"></p>
+      <button class="btn btn-primary btn-lg" id="btn-send-review" disabled>Review</button>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="modal-review">
+    <div class="modal">
+      <header class="modal-head"><h3>Confirm transfer</h3><button class="icon-btn modal-close" aria-label="Close">&#10005;</button></header>
+      <div class="review-amount"><span id="rev-amount"></span><small id="rev-asset"></small></div>
+      <dl class="kv kv--card">
+        <dt>To</dt><dd id="rev-to" class="mono"></dd>
+        <dt>Network</dt><dd id="rev-net"></dd>
+        <dt>Max fee</dt><dd id="rev-fee"></dd>
+      </dl>
+      <p class="op-status" id="rev-status"></p>
+      <button class="btn btn-primary btn-lg" id="btn-confirm-send">Hold to send</button>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="modal-token">
+    <div class="modal">
+      <header class="modal-head"><h3>Add custom token</h3><button class="icon-btn modal-close" aria-label="Close">&#10005;</button></header>
+      <div class="form-stack">
+        <label class="field"><span>Token contract address</span><input id="token-addr" type="text" spellcheck="false" autocomplete="off" placeholder="0x…"></label>
+      </div>
+      <dl class="kv kv--card" id="token-preview" hidden>
+        <dt>Symbol</dt><dd id="tp-symbol">—</dd>
+        <dt>Decimals</dt><dd id="tp-decimals">—</dd>
+        <dt>Balance</dt><dd id="tp-balance">—</dd>
+      </dl>
+      <p class="op-status" id="token-status"></p>
+      <button class="btn btn-primary btn-lg" id="btn-token-save" disabled>Add token</button>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="modal-export">
+    <div class="modal">
+      <header class="modal-head"><h3>Reveal secret</h3><button class="icon-btn modal-close" aria-label="Close">&#10005;</button></header>
+      <div class="tabs tabs--seg">
+        <button class="tab active" data-secret="phrase">Seed phrase</button>
+        <button class="tab" data-secret="key">Private key</button>
+      </div>
+      <label class="field">
+        <span>Password</span>
+        <input type="password" id="export-pass" autocomplete="current-password" placeholder="Enter your password">
+      </label>
+      <p class="op-status" id="export-status"></p>
+      <div class="secret-out" id="export-out" hidden></div>
+      <button class="btn btn-primary" id="btn-export-show">Reveal</button>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="modal-settings">
+    <div class="modal">
+      <header class="modal-head"><h3>Settings</h3><button class="icon-btn modal-close" aria-label="Close">&#10005;</button></header>
+      <ul class="menu-list">
+        <li><button id="ms-copy-addr">Copy address<i>&#8250;</i></button></li>
+        <li><button id="ms-view-on-explorer">View on explorer<i>&#8250;</i></button></li>
+        <li><button id="ms-backup">Back up seed phrase<i>&#8250;</i></button></li>
+        <li><button id="ms-lock">Lock wallet<i>&#8250;</i></button></li>
+        <li class="menu-danger"><button id="ms-delete">Delete wallet from this device<i>&#8250;</i></button></li>
+      </ul>
+      <p class="hint center pad-top">NeonWallet · v1.0 · non-custodial<br>Keys are encrypted with AES-256 and never leave this device.</p>
+    </div>
+  </div>
+
+  <!-- ================= OVERLAYS ================= -->
+  <div class="overlay" id="overlay-loading" hidden>
+    <div class="spinner"></div>
+    <p id="loading-text">Working…</p>
+  </div>
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+  <div id="boot-error" hidden style="position:fixed;left:8px;right:8px;bottom:8px;z-index:999;background:#3a1220;color:#ffb4c8;padding:10px;border-radius:12px;font:12px monospace;white-space:pre-wrap"></div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script src="js/networks.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/wallet.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/app.js"></script>
+<script src="js/events.js"></script>
+</body>
+</html>
