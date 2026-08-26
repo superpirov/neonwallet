@@ -54,7 +54,7 @@
     /* ---------- main header ---------- */
     $('#account-pill').addEventListener('click', () => UI.copyText(NW.App.S.address, 'Address copied'));
     $('#balance-addr').addEventListener('click', () => UI.copyText(NW.App.S.address, 'Address copied'));
-    $('#btn-settings').addEventListener('click', () => UI.openModal('modal-settings'));
+    $('#btn-settings').addEventListener('click', () => { App.loadCmcHint(); UI.openModal('modal-settings'); });
 
     /* ---------- networks ---------- */
     $('#btn-network').addEventListener('click', () => {
@@ -135,6 +135,9 @@
     $('#ms-backup').addEventListener('click', () => UI.openModal('modal-export'));
     $('#ms-lock').addEventListener('click', App.lockWallet);
     $('#ms-delete').addEventListener('click', e => App.deleteWallet(e.currentTarget));
+    $('#btn-save-cmc').addEventListener('click', App.saveCmcKey);
+    $('#btn-clear-cmc').addEventListener('click', App.clearCmcKey);
+    $('#cmc-key').addEventListener('keydown', e => { if (e.key === 'Enter') App.saveCmcKey(); });
 
     /* ---------- backup banner ---------- */
     $('#btn-banner-backup').addEventListener('click', () => UI.openModal('modal-export'));

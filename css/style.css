@@ -118,6 +118,9 @@ body {
 .foot-note { text-align: center; color: var(--muted); font-size: 12px; margin-top: auto; padding-top: 26px; }
 
 .welcome-actions { margin-top: auto; margin-bottom: 8vh; display: flex; flex-direction: column; gap: 12px; }
+.stack { display: flex; flex-direction: column; gap: 12px; width: 100%; margin-top: auto; margin-bottom: 8vh; align-items: stretch; }
+.stack.gap-12 { gap: 12px; }
+.stack .btn { width: 100%; }
 
 /* ================= buttons & fields ================= */
 .btn {
@@ -329,6 +332,9 @@ body {
 }
 .balance-main > span { font-size: 38px; font-weight: 700; letter-spacing: .4px; text-shadow: 0 0 34px rgba(110, 231, 199, 0.25); }
 .balance-main small { font-size: 15px; font-weight: 600; color: var(--muted); }
+.balance-fiat { margin-top: 8px; font-size: 14px; font-weight: 600; color: var(--muted); min-height: 18px; }
+.balance-fiat.ok { color: var(--text); }
+.balance-fiat .muted { color: var(--muted); font-weight: 400; }
 .balance-addr {
   margin-top: 8px; font-family: ui-monospace, monospace; font-size: 12.5px; color: var(--muted);
   cursor: pointer; transition: color .2s;
@@ -384,8 +390,10 @@ body {
 .token-meta { min-width: 0; }
 .token-name { font-weight: 600; font-size: 14px; }
 .token-sub { font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.token-amt { margin-left: auto; text-align: right; font-family: var(--font-display); font-weight: 600; }
+.token-amt { margin-left: auto; text-align: right; font-family: var(--font-display); font-weight: 600; min-width: 90px; }
 .token-amt small { display: block; font: 400 11px var(--font-body); color: var(--muted); }
+.token-fiat { display: block; font: 400 11px var(--font-body); color: var(--muted); margin-top: 2px; white-space: nowrap; }
+.token-fiat.ok { color: var(--text); }
 .token-send {
   appearance: none; cursor: pointer; margin-left: 8px; width: 34px; height: 34px; border-radius: 11px;
   border: 1px solid var(--border); background: var(--surface-2); color: var(--muted);

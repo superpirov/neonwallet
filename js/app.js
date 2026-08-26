@@ -71,9 +71,26 @@
 
   async function refreshBalance(silent) {
     const net = currentNet();
-    if (!silent) $('#balance-value').textContent = '…';
+    if (!silent) {
+      $('#balance-value').textContent = '…';
+      $('#balance-fiat').textContent = '';
+    }
     const bal = await W.fetchNativeBalance(net, S.address);
     $('#balance-value').textContent = bal === null ? '—' : W.fmtAmount(bal);
+    // fiat value for native
+    try {
+      if (bal != null && window.NW.Prices) {
+        await NW.Prices.ensureForNet(net, Store.getTokens(net.chainId));
+        const price = NW.Prices.getNativePrice(net.symbol);
+        if (price != null) {
+          const fiat = bal * price;
+          $('#balance-fiat').innerHTML = NW.Prices.formatFiat(fiat) + ' <span class="muted">@ ' + NW.Prices.formatFiat(price) + '</span>';
+          $('#balance-fiat').classList.add('ok');
+        } else {
+          $('#balance-fiat').textContent = '';
+        }
+      }
+    } catch(e){ /* price optional */ }
     return bal;
   }
 
@@ -109,6 +126,11 @@
     S.pollTimer = setInterval(() => {
       if (document.visibilityState !== 'visible') return;
       refreshBalance(true);
+      if (window.NW.Prices) {
+        NW.Prices.refresh(currentNet(), Store.getTokens(currentNet().chainId))
+          .then(() => { refreshBalance(true); renderTokens(); })
+          .catch(() => {});
+      }
     }, 45000);
   }
   function stopPolling() {
@@ -496,17 +518,32 @@
       onClickSend: () => openSend(null)
     });
     ul.appendChild(netBalEl);
-    W.fetchNativeBalance(net, S.address).then(bal => {
-      netBalEl.querySelector('.ta-v').textContent =
-        bal === null ? '—' : W.fmtAmount(bal);
-    });
+    (async () => {
+      const bal = await W.fetchNativeBalance(net, S.address);
+      const vEl = netBalEl.querySelector('.ta-v');
+      if (vEl) vEl.textContent = bal === null ? '—' : W.fmtAmount(bal);
+      // fiat for native row
+      try {
+        if (bal != null && NW.Prices) {
+          await NW.Prices.ensureForNet(net, Store.getTokens(net.chainId));
+          const price = NW.Prices.getNativePrice(net.symbol);
+          const fiatEl = netBalEl.querySelector('.token-fiat');
+          if (fiatEl && price != null) {
+            fiatEl.textContent = NW.Prices.formatFiat(bal * price) + ' @ ' + NW.Prices.formatFiat(price);
+            fiatEl.classList.add('ok');
+          }
+        }
+      } catch(e){}
+    })();
 
     const tokens = Store.getTokens(net.chainId);
+    // ensure prices for tokens are fetched in parallel with balances
+    const pricePromise = NW.Prices ? NW.Prices.ensureForNet(net, tokens).catch(()=>null) : null;
     await Promise.all(tokens.map(async t => {
       let bal = null;
       try { bal = await W.fetchTokenBalance(net, t, S.address); }
       catch (e) { console.warn('[token]', t.symbol, e.message); }
-      ul.appendChild(tokenRowEl({
+      const row = tokenRowEl({
         iconBg: 'linear-gradient(135deg,#ab90ff,#7fb2ff)',
         name: t.symbol,
         sub: W.shortAddr(t.address, 6) + ' · ERC-20',
@@ -520,7 +557,24 @@
           renderTokens();
           UI.toast(t.symbol + ' removed', 'ok');
         }
-      }));
+      });
+      ul.appendChild(row);
+      // fiat for ERC-20
+      (async () => {
+        try {
+          if (pricePromise) await pricePromise;
+          if (bal != null && NW.Prices) {
+            const price = NW.Prices.getTokenPrice(net.chainId, t.address);
+            // fallback: token symbol price (native mapping) — e.g., USDT on ETH uses its own price
+            const effPrice = price != null ? price : NW.Prices.getNativePrice(t.symbol);
+            const fiatEl = row.querySelector('.token-fiat');
+            if (fiatEl && effPrice != null) {
+              fiatEl.textContent = NW.Prices.formatFiat(bal * effPrice) + ' @ ' + NW.Prices.formatFiat(effPrice);
+              fiatEl.classList.add('ok');
+            }
+          }
+        } catch(e){}
+      })();
     }));
   }
 
@@ -530,7 +584,7 @@
     li.innerHTML =
       `<i class="token-ic" style="background:${o.iconBg}">${o.name.slice(0, 2).toUpperCase()}</i>` +
       `<span class="token-meta"><span class="token-name"></span><br><span class="token-sub"></span></span>` +
-      `<span class="token-amt"><span class="ta-v">${o.loading ? '…' : '—'}</span><small>${o.symbol}</small></span>` +
+      `<span class="token-amt"><span class="ta-v">${o.loading ? '…' : '—'}</span><small>${o.symbol}</small><span class="token-fiat"></span></span>` +
       `<button class="token-send" title="Send">&#8593;</button>`;
     li.querySelector('.token-name').textContent = o.name;
     li.querySelector('.token-sub').textContent = o.sub;
@@ -865,6 +919,43 @@
 
   /* ================= settings actions ================= */
 
+  function loadCmcHint() {
+    if (!window.NW.Prices) return;
+    const k = NW.Prices.getCmcKey();
+    const hint = $('#cmc-hint');
+    const input = $('#cmc-key');
+    if (!hint || !input) return;
+    if (k) {
+      hint.textContent = 'Using CoinMarketCap · ' + k.slice(0,4) + '…' + k.slice(-4) + ' · refresh 90s';
+      input.value = k;
+    } else {
+      hint.textContent = 'Using CoinGecko (free, no key needed) — add your CMC key above to switch';
+      input.value = '';
+    }
+    UI.status($('#cmc-status'), '');
+  }
+  function saveCmcKey() {
+    if (!window.NW.Prices) return;
+    const v = $('#cmc-key').value.trim();
+    if (!v) return UI.status($('#cmc-status'), 'Paste a key first', 'err');
+    NW.Prices.setCmcKey(v);
+    UI.status($('#cmc-status'), 'Key saved — fetching prices…', 'ok');
+    loadCmcHint();
+    NW.Prices.refresh(currentNet(), Store.getTokens(currentNet().chainId))
+      .then(() => { refreshBalance(true); renderTokens(); UI.toast('Prices updated via CoinMarketCap','ok'); })
+      .catch(e => UI.toast('CMC failed, using CoinGecko: ' + shortenErr(e), 'err'));
+  }
+  function clearCmcKey() {
+    if (!window.NW.Prices) return;
+    NW.Prices.clearCmcKey();
+    $('#cmc-key').value = '';
+    UI.status($('#cmc-status'), 'Key removed — switched to CoinGecko', 'ok');
+    loadCmcHint();
+    NW.Prices.refresh(currentNet(), Store.getTokens(currentNet().chainId))
+      .then(() => { refreshBalance(true); renderTokens(); })
+      .catch(() => {});
+  }
+
   function deleteWallet(btn) {
     if (btn.dataset.armed === '1') {
       Store.wipeAll();
@@ -890,6 +981,6 @@
     renderTokens, onTokenAddrInput, saveToken, renderActivity,
     openReceive, openSend, updateSendFee, onMaxAmount, updateReviewEnabled,
     openReview, executeSend, armHoldButton, revealSecret, deleteWallet,
-    refreshBalance
+    refreshBalance, loadCmcHint, saveCmcKey, clearCmcKey
   };
 })();

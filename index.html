@@ -153,6 +153,7 @@
     <div class="balance-card" id="balance-card">
       <span class="net-badge" id="balance-net">Ethereum</span>
       <div class="balance-main"><span id="balance-value">—</span><small id="balance-symbol">ETH</small></div>
+      <div class="balance-fiat" id="balance-fiat"></div>
       <div class="balance-addr" id="balance-addr">0x0000…0000</div>
     </div>
 
@@ -299,6 +300,19 @@
         <li><button id="ms-lock">Lock wallet<i>&#8250;</i></button></li>
         <li class="menu-danger"><button id="ms-delete">Delete wallet from this device<i>&#8250;</i></button></li>
       </ul>
+      <div class="settings-prices" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+        <label class="field">
+          <span>CoinMarketCap API key <span style="text-transform:none;font-weight:400;letter-spacing:0;color:var(--muted)">— optional</span></span>
+          <input id="cmc-key" type="password" autocomplete="off" spellcheck="false" placeholder="Paste CMC Pro API key">
+          <em class="hint">Stored locally only. If empty, prices come from CoinGecko (free). With CMC key, CoinMarketCap is used.</em>
+        </label>
+        <p class="op-status" id="cmc-status"></p>
+        <div class="row-gap" style="margin-top:8px">
+          <button class="btn btn-ghost" id="btn-save-cmc" style="flex:1">Save key</button>
+          <button class="btn btn-ghost" id="btn-clear-cmc">Clear</button>
+        </div>
+        <p class="hint" id="cmc-hint" style="margin-top:8px;font-size:11px"></p>
+      </div>
       <p class="hint center pad-top">NeonWallet · v1.0 · non-custodial<br>Keys are encrypted with AES-256 and never leave this device.</p>
     </div>
   </div>
@@ -317,6 +331,7 @@
 <script src="js/networks.js"></script>
 <script src="js/storage.js"></script>
 <script src="js/wallet.js"></script>
+<script src="js/prices.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/app.js"></script>
 <script src="js/events.js"></script>
