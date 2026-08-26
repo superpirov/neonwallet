@@ -98,6 +98,12 @@
     clearCmcKey() {
       localStorage.removeItem('nw.cmcKey');
     },
+    getCmcProxy() {
+      try { return JSON.parse(localStorage.getItem('nw.cmcProxy') || 'null'); } catch(e){ return null; }
+    },
+    setCmcProxy(u) {
+      localStorage.setItem('nw.cmcProxy', JSON.stringify(u));
+    },
 
     // ---- CoinGecko native ----
     async fetchGeckoNative(symbols) {
@@ -139,49 +145,46 @@
     },
 
     // ---- CoinMarketCap native (optional) ----
+    // NOTE: browsers block direct CMC calls (CORS). If a proxy is set
+    // in Settings, we use it; otherwise we try direct and fall back
+    // to CoinGecko on CORS failure.
     async fetchCmcNative(symbols, apiKey) {
       if (!apiKey) return {};
       const cmcSyms = symbols.map(cmcSymbol).join(',');
-      const url = `${CMC_BASE}/v1/cryptocurrency/quotes/latest?symbol=${encodeURIComponent(cmcSyms)}&convert=USD`;
-      const headers = { 'X-CMC_PRO_API_KEY': apiKey, 'Accept': 'application/json' };
-      // 1) try direct
-      try {
-        const r = await fetch(url, { headers });
-        if (!r.ok) throw new Error('CMC ' + r.status);
+      const proxy = this.getCmcProxy();
+      if (proxy) {
+        // proxy expected to be a Worker URL like https://xxx.workers.dev/?symbol=ETH,BNB
+        // we pass symbols and let the worker add the key server-side
+        const sep = proxy.includes('?') ? '&' : '?';
+        const url = `${proxy}${sep}symbol=${encodeURIComponent(cmcSyms)}&convert=USD`;
+        const r = await fetch(url, { headers: { 'Accept': 'application/json' } });
+        if (!r.ok) throw new Error('CMC proxy ' + r.status);
         const j = await r.json();
         const out = {};
-        const data = j.data || {};
+        const data = j.data || j;
+        const src = data.data || data;
         for (const sym of symbols) {
           const cSym = cmcSymbol(sym);
-          const entry = data[cSym];
+          const entry = src[cSym];
           const price = entry && entry.quote && entry.quote.USD && entry.quote.USD.price;
           if (price != null) out[sym] = price;
         }
         return out;
-      } catch (e) {
-        // Direct failed (CORS). Try via corsproxy.io
-        const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(url);
-        try {
-          const r2 = await fetch(proxyUrl, { headers });
-          if (!r2.ok) throw new Error('CMC proxy ' + r2.status);
-          const j2 = await r2.json();
-          const out2 = {};
-          const data2 = j2.data || j2; // proxy may wrap
-          // corsproxy returns JSON directly or as text?
-          // If proxy returns wrapped, try to parse .data
-          const src = data2.data || data2;
-          for (const sym of symbols) {
-            const cSym = cmcSymbol(sym);
-            const entry = src[cSym];
-            const price = entry && entry.quote && entry.quote.USD && entry.quote.USD.price;
-            if (price != null) out2[sym] = price;
-          }
-          if (Object.keys(out2).length) return out2;
-        } catch (e2) {
-          // fall through to CoinGecko fallback outside
-        }
-        throw e; // rethrow original to trigger fallback
       }
+      // direct (will be CORS-blocked in most browsers) — try once
+      const url = `${CMC_BASE}/v1/cryptocurrency/quotes/latest?symbol=${encodeURIComponent(cmcSyms)}&convert=USD&CMC_PRO_API_KEY=${encodeURIComponent(apiKey)}`;
+      const r = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      if (!r.ok) throw new Error('CMC ' + r.status);
+      const j = await r.json();
+      const out = {};
+      const data = j.data || {};
+      for (const sym of symbols) {
+        const cSym = cmcSymbol(sym);
+        const entry = data[cSym];
+        const price = entry && entry.quote && entry.quote.USD && entry.quote.USD.price;
+        if (price != null) out[sym] = price;
+      }
+      return out;
     },
 
     getNativePrice(symbol) {

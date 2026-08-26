@@ -138,6 +138,9 @@
     $('#btn-save-cmc').addEventListener('click', App.saveCmcKey);
     $('#btn-clear-cmc').addEventListener('click', App.clearCmcKey);
     $('#cmc-key').addEventListener('keydown', e => { if (e.key === 'Enter') App.saveCmcKey(); });
+    $('#btn-save-proxy').addEventListener('click', App.saveCmcProxy);
+    $('#btn-clear-proxy').addEventListener('click', App.clearCmcProxy);
+    $('#cmc-proxy').addEventListener('keydown', e => { if (e.key === 'Enter') App.saveCmcProxy(); });
 
     /* ---------- backup banner ---------- */
     $('#btn-banner-backup').addEventListener('click', () => UI.openModal('modal-export'));

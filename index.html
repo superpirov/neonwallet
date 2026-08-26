@@ -311,7 +311,31 @@
           <button class="btn btn-ghost" id="btn-save-cmc" style="flex:1">Save key</button>
           <button class="btn btn-ghost" id="btn-clear-cmc">Clear</button>
         </div>
+        <label class="field" style="margin-top:12px">
+          <span>CMC Proxy URL <span style="text-transform:none;font-weight:400;letter-spacing:0;color:var(--muted)">— for CORS</span></span>
+          <input id="cmc-proxy" type="url" autocomplete="off" spellcheck="false" placeholder="https://your-worker.workers.dev">
+          <em class="hint">Browsers block direct CMC calls. Deploy the worker code below or leave empty to use CoinGecko fallback.</em>
+        </label>
+        <p class="op-status" id="cmc-proxy-status"></p>
+        <div class="row-gap" style="margin-top:8px">
+          <button class="btn btn-ghost" id="btn-save-proxy" style="flex:1">Save proxy</button>
+          <button class="btn btn-ghost" id="btn-clear-proxy">Clear</button>
+        </div>
         <p class="hint" id="cmc-hint" style="margin-top:8px;font-size:11px"></p>
+        <details style="margin-top:10px">
+          <summary style="font-size:12px;color:var(--muted);cursor:pointer">Worker code (Cloudflare)</summary>
+          <pre style="font-size:10px;white-space:pre-wrap;word-break:break-all;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px;margin-top:8px">export default {
+  async fetch(req, env) {
+    const url = new URL(req.url);
+    const sym = url.searchParams.get('symbol') || 'ETH';
+    const convert = url.searchParams.get('convert') || 'USD';
+    const api = `https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=${sym}&amp;convert=${convert}`;
+    const r = await fetch(api, { headers: { 'X-CMC_PRO_API_KEY': env.CMC_KEY } });
+    return new Response(r.body, { status: r.status, headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' }});
+  }
+}
+// wrangler.toml: set CMC_KEY as secret `wrangler secret put CMC_KEY`</pre>
+        </details>
       </div>
       <p class="hint center pad-top">NeonWallet · v1.0 · non-custodial<br>Keys are encrypted with AES-256 and never leave this device.</p>
     </div>

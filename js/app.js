@@ -922,17 +922,21 @@
   function loadCmcHint() {
     if (!window.NW.Prices) return;
     const k = NW.Prices.getCmcKey();
+    const proxy = NW.Prices.getCmcProxy();
     const hint = $('#cmc-hint');
     const input = $('#cmc-key');
+    const proxyInput = $('#cmc-proxy');
     if (!hint || !input) return;
+    if (proxyInput) proxyInput.value = proxy || '';
     if (k) {
-      hint.textContent = 'Using CoinMarketCap · ' + k.slice(0,4) + '…' + k.slice(-4) + ' · refresh 90s';
+      hint.textContent = 'Using CoinMarketCap · ' + k.slice(0,4) + '…' + k.slice(-4) + (proxy ? ' via proxy' : ' (direct, may be CORS-blocked)') + ' · refresh 90s';
       input.value = k;
     } else {
       hint.textContent = 'Using CoinGecko (free, no key needed) — add your CMC key above to switch';
       input.value = '';
     }
     UI.status($('#cmc-status'), '');
+    UI.status($('#cmc-proxy-status'), '');
   }
   function saveCmcKey() {
     if (!window.NW.Prices) return;
@@ -954,6 +958,27 @@
     NW.Prices.refresh(currentNet(), Store.getTokens(currentNet().chainId))
       .then(() => { refreshBalance(true); renderTokens(); })
       .catch(() => {});
+  }
+  function saveCmcProxy() {
+    if (!window.NW.Prices) return;
+    const v = $('#cmc-proxy').value.trim();
+    if (!v) return UI.status($('#cmc-proxy-status'), 'Paste a proxy URL first', 'err');
+    if (!/^https:\/\//i.test(v)) return UI.status($('#cmc-proxy-status'), 'Proxy URL must start with https://', 'err');
+    NW.Prices.setCmcProxy(v);
+    UI.status($('#cmc-proxy-status'), 'Proxy saved', 'ok');
+    loadCmcHint();
+    if (NW.Prices.getCmcKey()) {
+      NW.Prices.refresh(currentNet(), Store.getTokens(currentNet().chainId))
+        .then(() => { refreshBalance(true); renderTokens(); UI.toast('Proxy prices loaded','ok'); })
+        .catch(e => UI.toast('Proxy failed: ' + shortenErr(e), 'err'));
+    }
+  }
+  function clearCmcProxy() {
+    if (!window.NW.Prices) return;
+    localStorage.removeItem('nw.cmcProxy');
+    $('#cmc-proxy').value = '';
+    UI.status($('#cmc-proxy-status'), 'Proxy removed', 'ok');
+    loadCmcHint();
   }
 
   function deleteWallet(btn) {
@@ -981,6 +1006,6 @@
     renderTokens, onTokenAddrInput, saveToken, renderActivity,
     openReceive, openSend, updateSendFee, onMaxAmount, updateReviewEnabled,
     openReview, executeSend, armHoldButton, revealSecret, deleteWallet,
-    refreshBalance, loadCmcHint, saveCmcKey, clearCmcKey
+    refreshBalance, loadCmcHint, saveCmcKey, clearCmcKey, saveCmcProxy, clearCmcProxy
   };
 })();
