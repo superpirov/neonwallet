@@ -127,7 +127,7 @@
   }
 
   const UI = {
-    $, $, showScreen, currentScreen, openModal, closeModal, toast, toastWithLink,
+    $, $$, showScreen, currentScreen, openModal, closeModal, toast, toastWithLink,
     loading, copyText, renderQR, setDisabled, val, status
   };
 
