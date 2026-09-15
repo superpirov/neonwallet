@@ -4,21 +4,29 @@
 (function () {
   'use strict';
 
-  const NW = window.NW || {};
-  const UI = NW.UI;
-  const Prices = NW.Prices || null;
-  const W = NW.W;
-  const Store = NW.Store;
-  const Networks = NW.Networks;
-  const Chains = NW.Chains;
-  const Neon = NW.Neon || null;
-  
-  if (!UI || !W || !Store || !Networks || !Chains) {
-    console.error('NeonWallet: required modules not loaded', { UI, W, Store, Networks, Chains });
-    return;
+  // Defer module initialization until boot() is called to ensure
+  // all dependencies are loaded.
+  let initialized = false;
+  let UI, Prices, W, Store, Networks, Chains, Neon, $, $$;
+
+  function init() {
+    if (initialized) return;
+    const NW = window.NW || {};
+    UI = NW.UI;
+    Prices = NW.Prices || null;
+    W = NW.W;
+    Store = NW.Store;
+    Networks = NW.Networks;
+    Chains = NW.Chains;
+    Neon = NW.Neon || null;
+
+    if (!UI || !W || !Store || !Networks || !Chains) {
+      console.error('NeonWallet: required modules not loaded', { UI, W, Store, Networks, Chains });
+      return;
+    }
+    ($ = UI.$), ($$ = UI.$$);
+    initialized = true;
   }
-  
-  const { $, $$ } = UI;
 
   /* ================= state (memory only) ================= */
   const S = {
@@ -44,6 +52,11 @@
   /* ================= boot ================= */
 
   function boot() {
+    init();
+    if (!initialized) {
+      console.error('NeonWallet: failed to initialize modules');
+      return;
+    }
     if (typeof ethers === 'undefined') {
       bootFail('ethers.js failed to load. Check your internet connection and reload.');
       return;
