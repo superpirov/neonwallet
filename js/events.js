@@ -89,8 +89,8 @@
     App.armHoldButton($('#btn-confirm-send'), App.executeSend);
 
     /* ---------- tabs ---------- */
-    $('.tabs:not(.tabs--seg) .tab').forEach(t => t.addEventListener('click', () => {
-      $('.tabs:not(.tabs--seg) .tab').forEach(x => x.classList.toggle('active', x === t));
+    $$('.tabs:not(.tabs--seg) .tab').forEach(t => t.addEventListener('click', () => {
+      $$('.tabs:not(.tabs--seg) .tab').forEach(x => x.classList.toggle('active', x === t));
       $('#tab-tokens').classList.toggle('active', t.dataset.tab === 'tokens');
       $('#tab-activity').classList.toggle('active', t.dataset.tab === 'activity');
       $('#tab-neon').classList.toggle('active', t.dataset.tab === 'neon');
@@ -153,7 +153,12 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
-    wire();
+    try {
+      wire();
+    } catch (e) {
+      console.error('NeonWallet: event wiring failed', e);
+      if (NW.UI && NW.UI.toast) NW.UI.toast('UI init error — see console', 'err');
+    }
     NW.App.boot();
   });
 })();
