@@ -4,7 +4,9 @@
 (function () {
   'use strict';
 
-  const { UI, W, Store, Networks, Chains, Neon } = NW;
+  const NW = window.NW || {};
+  const { UI, W, Store, Networks, Chains } = NW;
+  const Neon = (window.NW && window.NW.Neon) ? window.NW.Neon : null;
   const { $, $$ } = UI;
 
   /* ================= state (memory only) ================= */
@@ -119,11 +121,11 @@
     // fiat value for native
     try {
       if (bal != null && window.NW.Prices) {
-        await NW.Prices.ensureForNet(net, Store.getTokens(net.chainId));
-        const price = NW.Prices.getNativePrice(net.symbol);
+        await window.window.NW.Prices.ensureForNet(net, Store.getTokens(net.chainId));
+        const price = window.NW.Prices.getNativePrice(net.symbol);
         if (price != null) {
           const fiat = bal * price;
-          $('#balance-fiat').innerHTML = NW.Prices.formatFiat(fiat) + ' <span class="muted">@ ' + NW.Prices.formatFiat(price) + '</span>';
+          $('#balance-fiat').innerHTML = window.NW.Prices.formatFiat(fiat) + ' <span class="muted">@ ' + window.NW.Prices.formatFiat(price) + '</span>';
           $('#balance-fiat').classList.add('ok');
         } else {
           $('#balance-fiat').textContent = '';
@@ -173,7 +175,7 @@
       refreshBalance(true);
       if (Neon) { Neon.accrue(); renderNeon(); }
       if (window.NW.Prices) {
-        NW.Prices.refresh(currentNet(), Store.getTokens(currentNet().chainId))
+        window.NW.Prices.refresh(currentNet(), Store.getTokens(currentNet().chainId))
           .then(() => { refreshBalance(true); renderTokens(); })
           .catch(() => {});
       }
@@ -714,12 +716,12 @@
       if (vEl) vEl.textContent = bal === null ? '—' : W.fmtAmount(bal);
       // fiat for native row
       try {
-        if (bal != null && NW.Prices) {
-          await NW.Prices.ensureForNet(net, Store.getTokens(net.chainId));
-          const price = NW.Prices.getNativePrice(net.symbol);
+        if (bal != null && window.NW.Prices) {
+          await window.window.NW.Prices.ensureForNet(net, Store.getTokens(net.chainId));
+          const price = window.NW.Prices.getNativePrice(net.symbol);
           const fiatEl = netBalEl.querySelector('.token-fiat');
           if (fiatEl && price != null) {
-            fiatEl.textContent = NW.Prices.formatFiat(bal * price) + ' @ ' + NW.Prices.formatFiat(price);
+            fiatEl.textContent = window.NW.Prices.formatFiat(bal * price) + ' @ ' + window.NW.Prices.formatFiat(price);
             fiatEl.classList.add('ok');
           }
         }
@@ -738,7 +740,7 @@
 
     const tokens = Store.getTokens(net.chainId);
     // ensure prices for tokens are fetched in parallel with balances
-    const pricePromise = NW.Prices ? NW.Prices.ensureForNet(net, tokens).catch(()=>null) : null;
+    const pricePromise = NW.Prices ? window.NW.Prices.ensureForNet(net, tokens).catch(()=>null) : null;
     await Promise.all(tokens.map(async t => {
       let bal = null;
       try { bal = await W.fetchTokenBalance(net, t, S.address); }
@@ -763,13 +765,13 @@
       (async () => {
         try {
           if (pricePromise) await pricePromise;
-          if (bal != null && NW.Prices) {
-            const price = NW.Prices.getTokenPrice(net.chainId, t.address);
+          if (bal != null && window.NW.Prices) {
+            const price = window.NW.Prices.getTokenPrice(net.chainId, t.address);
             // fallback: token symbol price (native mapping) — e.g., USDT on ETH uses its own price
-            const effPrice = price != null ? price : NW.Prices.getNativePrice(t.symbol);
+            const effPrice = price != null ? price : window.NW.Prices.getNativePrice(t.symbol);
             const fiatEl = row.querySelector('.token-fiat');
             if (fiatEl && effPrice != null) {
-              fiatEl.textContent = NW.Prices.formatFiat(bal * effPrice) + ' @ ' + NW.Prices.formatFiat(effPrice);
+              fiatEl.textContent = window.NW.Prices.formatFiat(bal * effPrice) + ' @ ' + window.NW.Prices.formatFiat(effPrice);
               fiatEl.classList.add('ok');
             }
           }
@@ -940,7 +942,7 @@
         const data = iface.encodeFunctionData('transfer', [to, W.parseUnits(amount, S.sendTokenCtx.decimals)]);
         const callTx = Object.assign(
           { to: S.sendTokenCtx.address, data },
-          W.feeFieldsFrom(await NW.W.providerFor(net).getFeeData())
+          W.feeFieldsFrom(await window.NW.W.providerFor(net).getFeeData())
         );
         const est = await W.estimateCall(net, S.address, callTx);
         totalWei = est.total;
@@ -1131,8 +1133,8 @@
 
   function loadCmcHint() {
     if (!window.NW.Prices) return;
-    const k = NW.Prices.getCmcKey();
-    const proxy = NW.Prices.getCmcProxy();
+    const k = window.NW.Prices.getCmcKey();
+    const proxy = window.NW.Prices.getCmcProxy();
     const hint = $('#cmc-hint');
     const input = $('#cmc-key');
     const proxyInput = $('#cmc-proxy');
@@ -1152,20 +1154,20 @@
     if (!window.NW.Prices) return;
     const v = $('#cmc-key').value.trim();
     if (!v) return UI.status($('#cmc-status'), 'Paste a key first', 'err');
-    NW.Prices.setCmcKey(v);
+    window.NW.Prices.setCmcKey(v);
     UI.status($('#cmc-status'), 'Key saved — fetching prices…', 'ok');
     loadCmcHint();
-    NW.Prices.refresh(currentNet(), Store.getTokens(currentNet().chainId))
+    window.NW.Prices.refresh(currentNet(), Store.getTokens(currentNet().chainId))
       .then(() => { refreshBalance(true); renderTokens(); UI.toast('Prices updated via CoinMarketCap','ok'); })
       .catch(e => UI.toast('CMC failed, using CoinGecko: ' + shortenErr(e), 'err'));
   }
   function clearCmcKey() {
     if (!window.NW.Prices) return;
-    NW.Prices.clearCmcKey();
+    window.NW.Prices.clearCmcKey();
     $('#cmc-key').value = '';
     UI.status($('#cmc-status'), 'Key removed — switched to CoinGecko', 'ok');
     loadCmcHint();
-    NW.Prices.refresh(currentNet(), Store.getTokens(currentNet().chainId))
+    window.NW.Prices.refresh(currentNet(), Store.getTokens(currentNet().chainId))
       .then(() => { refreshBalance(true); renderTokens(); })
       .catch(() => {});
   }
@@ -1174,11 +1176,11 @@
     const v = $('#cmc-proxy').value.trim();
     if (!v) return UI.status($('#cmc-proxy-status'), 'Paste a proxy URL first', 'err');
     if (!/^https:\/\//i.test(v)) return UI.status($('#cmc-proxy-status'), 'Proxy URL must start with https://', 'err');
-    NW.Prices.setCmcProxy(v);
+    window.NW.Prices.setCmcProxy(v);
     UI.status($('#cmc-proxy-status'), 'Proxy saved', 'ok');
     loadCmcHint();
-    if (NW.Prices.getCmcKey()) {
-      NW.Prices.refresh(currentNet(), Store.getTokens(currentNet().chainId))
+    if (window.NW.Prices.getCmcKey()) {
+      window.NW.Prices.refresh(currentNet(), Store.getTokens(currentNet().chainId))
         .then(() => { refreshBalance(true); renderTokens(); UI.toast('Proxy prices loaded','ok'); })
         .catch(e => UI.toast('Proxy failed: ' + shortenErr(e), 'err'));
     }
@@ -1207,7 +1209,7 @@
 
   /* ================= exports ================= */
 
-  NW.App = {
+  const App = {
     S, boot, bootFail, displayAddr, currentNet,
     startCreate, startImport, finishPasswordStep, onPasswordInput,
     onImportInput, doUnlock, forgetWallet, lockWallet,
@@ -1220,4 +1222,7 @@
     refreshBalance, loadCmcHint, saveCmcKey, clearCmcKey, saveCmcProxy, clearCmcProxy,
     saveAutoLock
   };
+
+  window.NW = window.NW || {};
+  window.NW.App = App;
 })();

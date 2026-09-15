@@ -4,6 +4,7 @@
 (function () {
   'use strict';
 
+  const NW = window.NW || {};
   const { UI, App } = NW;
   const { $, $$ } = UI;
 
