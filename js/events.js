@@ -157,14 +157,24 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
-    try {
-      wire();
-    } catch (e) {
-      console.error('NeonWallet: event wiring failed', e);
+    const tryWire = () => {
       const NW = window.NW || {};
-      if (NW.UI && NW.UI.toast) NW.UI.toast('UI init error — see console', 'err');
-    }
-    const NW = window.NW || {};
-    if (NW.App) NW.App.boot();
+      const { UI, App } = NW;
+      if (!UI || !App) {
+        console.warn('NeonWallet: waiting for UI/App...');
+        setTimeout(tryWire, 50);
+        return;
+      }
+      try {
+        wire();
+        console.log('NeonWallet: event wiring complete');
+      } catch (e) {
+        console.error('NeonWallet: event wiring failed', e);
+        if (NW.UI && NW.UI.toast) NW.UI.toast('UI init error — see console', 'err');
+      }
+      // boot only after wiring is done
+      App.boot();
+    };
+    tryWire();
   });
 })();
