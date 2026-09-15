@@ -14,14 +14,8 @@
     const { $, $$ } = UI;
 
     /* ---------- welcome ---------- */
-    $('#btn-create').addEventListener('click', () => {
-      if (!initialized) { console.error('App not initialized'); return; }
-      App.startCreate();
-    });
-    $('#btn-import').addEventListener('click', () => {
-      if (!initialized) { console.error('App not initialized'); return; }
-      App.startImport();
-    });
+    $('#btn-create').addEventListener('click', App.startCreate);
+    $('#btn-import').addEventListener('click', App.startImport);
 
     // generic back buttons
     $$('[data-nav]').forEach(b =>
