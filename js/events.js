@@ -171,6 +171,10 @@
         return;
       }
       try {
+        // Initialize App module BEFORE wiring events
+        if (typeof App.init === 'function') {
+          App.init();
+        }
         wire();
         console.log('NeonWallet: event wiring complete');
         // boot only after wiring is done

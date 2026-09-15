@@ -52,7 +52,7 @@
   /* ================= boot ================= */
 
   function boot() {
-    init();
+    // init() is now called from events.js before wiring
     if (!initialized) {
       console.error('NeonWallet: failed to initialize modules');
       return;
@@ -1234,7 +1234,7 @@
   /* ================= exports ================= */
 
   const App = {
-    S, boot, bootFail, displayAddr, currentNet,
+    S, init, boot, bootFail, displayAddr, currentNet,
     startCreate, startImport, finishPasswordStep, onPasswordInput,
     onImportInput, doUnlock, forgetWallet, lockWallet,
     checkVerify, startVerify,
