@@ -165,15 +165,21 @@
         setTimeout(tryWire, 50);
         return;
       }
+      // Check if DOM is fully ready
+      if (document.readyState !== 'complete') {
+        setTimeout(tryWire, 50);
+        return;
+      }
       try {
         wire();
         console.log('NeonWallet: event wiring complete');
+        // boot only after wiring is done
+        App.boot();
       } catch (e) {
         console.error('NeonWallet: event wiring failed', e);
         if (NW.UI && NW.UI.toast) NW.UI.toast('UI init error — see console', 'err');
+        setTimeout(tryWire, 100);
       }
-      // boot only after wiring is done
-      App.boot();
     };
     tryWire();
   });
