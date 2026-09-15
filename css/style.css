@@ -569,6 +569,33 @@ body {
 [hidden] { display: none !important; }
 ::selection { background: rgba(110, 231, 199, 0.25); }
 
+/* ---------- Neon Token (demo miner) ---------- */
+.neon-disclaimer { margin-bottom: 14px; }
+.neon-card { margin-bottom: 14px; }
+.neon-card .net-badge b { color: var(--mint); }
+.neon-progress {
+  height: 8px; border-radius: 999px; overflow: hidden;
+  background: var(--surface); border: 1px solid var(--border); margin: 4px 0 8px;
+}
+.neon-progress > i {
+  display: block; height: 100%; width: 0;
+  background: linear-gradient(90deg, var(--mint), var(--blue));
+  transition: width .4s ease;
+}
+#btn-neon-upgrade { width: 100%; margin: 6px 0 10px; }
+.neon-tier-row { cursor: default; }
+.neon-tier-row .token-ic { font: 600 11px var(--font-body); }
+.neon-tier-row .token-state {
+  font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em;
+  margin-left: auto;
+}
+.neon-tier-row.is-current { border-color: rgba(110, 231, 199, .45); box-shadow: var(--glow-mint); }
+.neon-tier-row.is-current .token-state { color: var(--mint); }
+.neon-tier-row.is-done { opacity: .55; }
+.neon-tier-row.is-done .token-state { color: var(--blue); }
+.token-note { display: block; padding: 10px 4px 2px; }
+.toast.info { border-color: rgba(127, 178, 255, .4); }
+
 @media (max-width: 380px) {
   .shell { padding-left: 13px; padding-right: 13px; }
   .balance-main > span { font-size: 32px; }

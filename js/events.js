@@ -89,12 +89,17 @@
     App.armHoldButton($('#btn-confirm-send'), App.executeSend);
 
     /* ---------- tabs ---------- */
-    $$('.tabs:not(.tabs--seg) .tab').forEach(t => t.addEventListener('click', () => {
-      $$('.tabs:not(.tabs--seg) .tab').forEach(x => x.classList.toggle('active', x === t));
+    $('.tabs:not(.tabs--seg) .tab').forEach(t => t.addEventListener('click', () => {
+      $('.tabs:not(.tabs--seg) .tab').forEach(x => x.classList.toggle('active', x === t));
       $('#tab-tokens').classList.toggle('active', t.dataset.tab === 'tokens');
       $('#tab-activity').classList.toggle('active', t.dataset.tab === 'activity');
+      $('#tab-neon').classList.toggle('active', t.dataset.tab === 'neon');
       if (t.dataset.tab === 'activity') App.renderActivity();
+      if (t.dataset.tab === 'neon') App.renderNeon();
     }));
+
+    /* ---------- neon token (demo miner) ---------- */
+    $('#btn-neon-upgrade').addEventListener('click', App.onNeonUpgrade);
 
     /* ---------- tokens ---------- */
     $('#btn-add-token').addEventListener('click', () => {
@@ -125,16 +130,17 @@
     });
 
     /* ---------- settings ---------- */
-    $('#ms-copy-addr').addEventListener('click', () => UI.copyText(NW.App.S.address, 'Address copied'));
+    $('#ms-copy-addr').addEventListener('click', () => UI.copyText(App.displayAddr(), 'Address copied'));
     $('#ms-view-on-explorer').addEventListener('click', () => {
       const net = NW.Networks.selected();
-      const url = NW.Networks.explorerAddr(net, NW.App.S.address);
+      const url = NW.Networks.explorerAddr(net, App.displayAddr());
       if (url) window.open(url, '_blank', 'noopener');
       else UI.toast('This network has no explorer configured', 'err');
     });
     $('#ms-backup').addEventListener('click', () => UI.openModal('modal-export'));
     $('#ms-lock').addEventListener('click', App.lockWallet);
     $('#ms-delete').addEventListener('click', e => App.deleteWallet(e.currentTarget));
+    $('#autolock-min').addEventListener('change', App.saveAutoLock);
     $('#btn-save-cmc').addEventListener('click', App.saveCmcKey);
     $('#btn-clear-cmc').addEventListener('click', App.clearCmcKey);
     $('#cmc-key').addEventListener('keydown', e => { if (e.key === 'Enter') App.saveCmcKey(); });

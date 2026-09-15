@@ -11,7 +11,9 @@
 <script src="js/networks.js"></script>
 <script src="js/storage.js"></script>
 <script src="js/wallet.js"></script>
+<script src="js/chains.js"></script>
 <script src="js/prices.js"></script>
+<script src="js/neon.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/app.js"></script>
 <script type="module">
@@ -99,6 +101,62 @@ await t('net-list-render', () => {
 await t('fmt-short', () =>
   NW.W.fmtAmount(1.23456789) === '1.234568' &&
   NW.W.shortAddr('0x1234567890abcdef1234567890abcdef12345678').startsWith('0x1234'));
+
+/* ---------- Tron (non-EVM) ---------- */
+await t('tron-preset-present', () => {
+  const t = NW.Networks.byId(728126428);
+  return t && t.type === 'tron' && t.symbol === 'TRX' ? t.name : false;
+});
+
+await t('tron-addr-vector', () => {
+  // reference value produced by tronweb.address.fromPrivateKey for the
+  // BIP-44 path m/44'/195'/0'/0/0 of the abandon…about test mnemonic
+  const phrase = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
+  const addr = NW.Chains.addressFor({ type: 'tron' }, phrase, 'phrase', null);
+  return addr === 'TUEZSdKsoDHQMeZwihtdoBiN46zxhGWYdH' ? addr : 'MISMATCH:' + addr;
+});
+
+await t('tron-addr-validate', () =>
+  NW.Chains.isValidAddress({ type: 'tron' }, 'TUEZSdKsoDHQMeZwihtdoBiN46zxhGWYdH') === true &&
+  NW.Chains.isValidAddress({ type: 'tron' }, 'TUEZSdKsoDHQMeZwihtdoBiN46zxhGWYdG') === false &&
+  NW.Chains.isValidAddress({ type: 'tron' }, '0x9858EfFD232B4033E47d90003D41EC34EcaEda94') === false);
+
+await t('evm-addr-unchanged', () =>
+  NW.Chains.isValidAddress({ chainId: 1 }, '0x9858EfFD232B4033E47d90003D41EC34EcaEda94') === true &&
+  NW.Chains.addressFor({ chainId: 1 }, 'x', 'key', '0xPASS') === '0xPASS');
+
+/* ---------- Neon Token (demo miner) ---------- */
+await t('neon-tiers', () => NW.Neon.TIERS.length === 5 && NW.Neon.TIERS[4].name === 'Diamond');
+
+await t('neon-accrue-hourly', () => {
+  NW.Neon.reset();
+  NW.Neon.accrue();                                  // stamps the clock
+  localStorage.setItem('nw.neon.lastAccrualTs', JSON.stringify(Date.now() - 10 * NW.Neon.HOUR));
+  const earned = NW.Neon.accrue();
+  const ok = Math.abs(earned - 0.05) < 1e-9 && Math.abs(NW.Neon.getBalance() - 0.05) < 1e-9;
+  NW.Neon.reset();
+  return ok || ('earned:' + earned);
+});
+
+await t('neon-partial-hour-zero', () => {
+  NW.Neon.reset();
+  NW.Neon.accrue();
+  localStorage.setItem('nw.neon.lastAccrualTs', JSON.stringify(Date.now() - 35 * 60 * 1000));
+  const earned = NW.Neon.accrue();
+  NW.Neon.reset();
+  return earned === 0;
+});
+
+await t('neon-upgrade-burns', () => {
+  NW.Neon.reset();
+  const blocked = NW.Neon.upgrade();                 // no balance yet
+  localStorage.setItem('nw.neon.balance', JSON.stringify(300)); // 0.300
+  const up = NW.Neon.upgrade();
+  const ok = blocked.ok === false && up.ok === true && up.level === 2 &&
+    Math.abs(NW.Neon.getBalance() - 0.05) < 1e-9 && NW.Neon.getLevel() === 2;
+  NW.Neon.reset();
+  return ok || JSON.stringify({ blocked, up, bal: NW.Neon.getBalance() });
+});
 
 document.getElementById('results').textContent = JSON.stringify(R);
 document.title = 'SELFTEST-DONE';

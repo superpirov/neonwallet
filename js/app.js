@@ -4,13 +4,14 @@
 (function () {
   'use strict';
 
-  const { UI, W, Store, Networks } = NW;
+  const { UI, W, Store, Networks, Chains, Neon } = NW;
   const { $, $$ } = UI;
 
   /* ================= state (memory only) ================= */
   const S = {
     signer: null,          // decrypted signer lives here only while unlocked
     address: null,
+    tronAddress: null,     // public non-EVM sibling address (derived at unlock)
     net: null,
     mode: null,            // 'create' | 'import'
     tempPass: null,
@@ -21,6 +22,9 @@
     tokenPreview: null,
     verifyPicks: [],
     pollTimer: null,
+    neonTimer: null,
+    idleTimer: null,
+    lastActivity: Date.now(),
     holdRAF: null
   };
 
@@ -31,6 +35,11 @@
       bootFail('ethers.js failed to load. Check your internet connection and reload.');
       return;
     }
+    // Demo token rewards keep counting while the app is closed, so the
+    // catch-up runs before any screen renders a balance.
+    if (Neon) { try { Neon.accrue(); } catch (e) { /* storage disabled */ } }
+    const sel = $('#autolock-min');
+    if (sel) sel.value = String(Store.getAutoLockMin());
     if (Store.hasVault()) {
       $('#unlock-addr').textContent = Store.getAddress() || '';
       UI.showScreen('screen-unlock');
@@ -55,6 +64,35 @@
     $('#net-dot').style.background = net.color;
     $('#balance-net').textContent = net.name;
     $('#balance-symbol').textContent = net.symbol;
+    // Non-EVM chains are read-only in this build: sending needs a different
+    // signing scheme, so the action is disabled instead of silently failing.
+    const readOnly = Chains.isNonEvm(net);
+    UI.setDisabled($('#btn-send'), readOnly);
+    $('#btn-send').title = readOnly
+      ? net.name + ' is receive-only in this build'
+      : '';
+    const tok = $('#btn-add-token');
+    if (tok) UI.setDisabled(tok, readOnly);
+  }
+
+  /**
+   * Address that belongs to the *selected* network. EVM networks share the
+   * signer address; Tron derives its own from the same secret.
+   */
+  function displayAddr() {
+    const net = currentNet();
+    return Chains.isNonEvm(net) ? S.tronAddress : S.address;
+  }
+
+  /**
+   * Non-EVM sibling addresses come from the same secret, so they are derived
+   * once while the secret is briefly in scope and then persisted. Only the
+   * public address is kept afterwards — the secret itself is never stored on
+   * state and is zeroed by the caller.
+   */
+  function deriveChainAddresses(type, secret) {
+    S.tronAddress = Chains.addressFor({ type: 'tron' }, secret, type, S.address);
+    if (S.tronAddress) Store.setTronAddress(S.tronAddress);
   }
 
   function avatarHue(addr) {
@@ -64,8 +102,9 @@
   }
 
   function renderAccount() {
-    $('#addr-short').textContent = W.shortAddr(S.address);
-    $('#balance-addr').textContent = W.shortAddr(S.address, 6);
+    const shown = displayAddr() || S.address;
+    $('#addr-short').textContent = W.shortAddr(shown);
+    $('#balance-addr').textContent = W.shortAddr(shown, 6);
     $('#avatar').style.filter = `hue-rotate(${avatarHue(S.address)}deg)`;
   }
 
@@ -75,7 +114,7 @@
       $('#balance-value').textContent = '…';
       $('#balance-fiat').textContent = '';
     }
-    const bal = await W.fetchNativeBalance(net, S.address);
+    const bal = await Chains.fetchNativeBalance(net, displayAddr());
     $('#balance-value').textContent = bal === null ? '—' : W.fmtAmount(bal);
     // fiat value for native
     try {
@@ -98,6 +137,7 @@
 
   async function enterMain() {
     S.address = S.signer.address;
+    if (!S.tronAddress) S.tronAddress = Store.getTronAddress();
     Store.setAddress(S.address);
     S.net = Networks.selected();
     UI.showScreen('screen-main');
@@ -105,16 +145,21 @@
     applyNetTheme();
     $('#banner-backup').hidden = Store.isBackedUp();
     UI.closeModal();
+    if (Neon) Neon.accrue();
     await Promise.all([refreshBalance(), renderTokens()]);
     renderActivity();
+    renderNeon();
     startPolling();
+    startIdleWatch();
   }
 
   function lockWallet() {
     S.signer = null;
     S.tempPass = null;
     S.importSecret = null;
+    S.tronAddress = null;
     stopPolling();
+    stopIdleWatch();
     UI.closeModal();
     $('#unlock-pass').value = '';
     $('#unlock-addr').textContent = Store.getAddress() || '';
@@ -126,6 +171,7 @@
     S.pollTimer = setInterval(() => {
       if (document.visibilityState !== 'visible') return;
       refreshBalance(true);
+      if (Neon) { Neon.accrue(); renderNeon(); }
       if (window.NW.Prices) {
         NW.Prices.refresh(currentNet(), Store.getTokens(currentNet().chainId))
           .then(() => { refreshBalance(true); renderTokens(); })
@@ -136,6 +182,78 @@
   function stopPolling() {
     if (S.pollTimer) clearInterval(S.pollTimer);
     S.pollTimer = null;
+  }
+
+  /* ================= idle auto-lock =================
+     The wallet holds a live signer in memory, so walking away leaves it
+     usable. Any real interaction pushes the deadline forward; leaving the
+     tab (switched app, locked phone, closed tab) locks immediately.
+     iOS Safari fires visibilitychange unreliably, hence pagehide as well. */
+
+  const IDLE_EVENTS = ['pointerdown', 'pointermove', 'keydown', 'touchstart', 'wheel', 'scroll'];
+  // Grace period while the tab is hidden: a quick glance at another tab or
+  // the explorer should not force a re-unlock, but walking away must.
+  const AWAY_MS = 60 * 1000;
+  let idleHandlerBound = false;
+  let awayTimer = null;
+
+  function idleMs() {
+    const min = Store.getAutoLockMin();
+    return min > 0 ? min * 60 * 1000 : 0; // 0 = never auto-lock
+  }
+
+  function resetIdleTimer() {
+    if (S.idleTimer) clearTimeout(S.idleTimer);
+    S.idleTimer = null;
+    const ms = idleMs();
+    if (!ms) return;
+    S.idleTimer = setTimeout(() => {
+      if (UI.currentScreen() === 'screen-main') {
+        lockWallet();
+        UI.toast('Locked after inactivity', 'info');
+      }
+    }, ms);
+  }
+
+  function lockNow() {
+    if (UI.currentScreen() !== 'screen-main') return;
+    lockWallet(); // no toast: the user is already gone
+  }
+
+  function onVisibilityChange() {
+    if (document.visibilityState === 'hidden') {
+      if (awayTimer) clearTimeout(awayTimer);
+      awayTimer = setTimeout(lockNow, AWAY_MS);
+    } else if (awayTimer) {
+      clearTimeout(awayTimer);
+      awayTimer = null;
+      resetIdleTimer();
+    }
+  }
+
+  function startIdleWatch() {
+    if (!idleHandlerBound) {
+      IDLE_EVENTS.forEach(ev =>
+        document.addEventListener(ev, resetIdleTimer, { passive: true, capture: true }));
+      document.addEventListener('visibilitychange', onVisibilityChange);
+      // Closing or suspending the page: visibilitychange is unreliable on
+      // iOS Safari, pagehide always fires.
+      window.addEventListener('pagehide', lockNow);
+      idleHandlerBound = true;
+    }
+    resetIdleTimer();
+  }
+
+  function saveAutoLock() {
+    const min = Number($('#autolock-min').value);
+    Store.setAutoLockMin(min);
+    if (UI.currentScreen() === 'screen-main') resetIdleTimer();
+    UI.toast(min > 0 ? 'Auto-lock set to ' + min + ' min' : 'Auto-lock disabled', 'ok');
+  }
+
+  function stopIdleWatch() {
+    if (S.idleTimer) clearTimeout(S.idleTimer);
+    S.idleTimer = null;
   }
 
   /* ================= create flow ================= */
@@ -188,6 +306,8 @@
       Store.setVault(blob);
       Store.setAddress(wallet.address);
       S.signer = wallet;
+      S.address = wallet.address;
+      deriveChainAddresses(S.importType, S.importSecret.trim());
       S.importSecret = null;
       UI.loading(false);
       await enterMain();
@@ -292,6 +412,8 @@
       Store.setAddress(wallet.address);
       Store.setBackedUp();               // user has just verified the phrase
       S.signer = wallet;
+      S.address = wallet.address;
+      deriveChainAddresses('phrase', secret);
       S.tempPass = null;
       S.mnemonicWords = [];
       UI.loading(false);
@@ -357,6 +479,8 @@
     try {
       const { type, secret } = await W.decryptVault(blob, pass);
       S.signer = W.walletFromSecret(type, secret);
+      S.address = S.signer.address;
+      deriveChainAddresses(type, secret);
       UI.loading(false);
       $('#unlock-pass').value = '';
       await enterMain();
@@ -459,6 +583,7 @@
     applyNetTheme();
     UI.closeModal();
     $('#net-search').value = '';
+    renderAccount();
     refreshBalance();
     renderTokens();
     renderActivity();
@@ -501,10 +626,75 @@
     UI.toast(name + ' added', 'ok');
   }
 
+  /* ================= Neon Token (demo) ================= */
+
+  function renderNeon() {
+    if (!Neon) return;
+    const s = Neon.stats();
+    const f = v => Number(v).toFixed(v >= 1 ? 2 : 3).replace(/\.?0+$/, '') || '0';
+
+    $('#neon-balance').textContent = f(s.balance);
+    $('#neon-tier-name').textContent = s.tier.name;
+    $('#neon-rate').textContent = '+' + f(s.perHour) + ' / hour';
+    $('#neon-mined').textContent = f(s.totalMined) + ' mined in total';
+    $('#neon-cur-tier').textContent = s.tier.name + ' · L' + s.level;
+    $('#neon-cur-rate').textContent = f(s.perHour) + ' / hour';
+    $('#neon-per-day').textContent = f(s.perDay) + ' / day';
+
+    const upgradeBtn = $('#btn-neon-upgrade');
+    const bar = $('#neon-progress-bar');
+    const hint = $('#neon-progress-hint');
+
+    if (s.next.maxed) {
+      $('#neon-next-name').textContent = '—';
+      $('#neon-next-cost').textContent = '—';
+      $('#neon-next-rate').textContent = '—';
+      upgradeBtn.disabled = true;
+      upgradeBtn.textContent = 'Top tier reached';
+      bar.style.width = '100%';
+      hint.textContent = 'Diamond is the highest tier — you are mining at the best rate.';
+    } else {
+      const n = s.next;
+      $('#neon-next-name').textContent = n.next.name + ' · L' + n.next.level;
+      $('#neon-next-cost').textContent = f(n.cost) + ' NEON (burned)';
+      $('#neon-next-rate').textContent = f(n.next.perHour) + ' / hour';
+      upgradeBtn.disabled = !n.affordable;
+      upgradeBtn.textContent = n.affordable
+        ? 'Upgrade to ' + n.next.name
+        : 'Need ' + f(n.cost - s.balance) + ' more NEON';
+      bar.style.width = Math.min(100, (s.balance / n.cost) * 100).toFixed(1) + '%';
+      hint.textContent = n.affordable
+        ? 'Ready to upgrade — ' + f(n.cost) + ' NEON will be burned.'
+        : 'Earn ' + f(n.cost) + ' NEON to unlock ' + n.next.name + '.';
+    }
+
+    const list = $('#neon-tiers-list');
+    list.innerHTML = '';
+    Neon.TIERS.forEach(t => {
+      const li = document.createElement('li');
+      li.className = 'token-row neon-tier-row' + (t.level === s.level ? ' is-current' : '')
+        + (t.level < s.level ? ' is-done' : '');
+      li.innerHTML =
+        `<i class="token-ic neon-tier-ic">L${t.level}</i>` +
+        `<span class="token-meta"><span class="token-name">${t.name}</span><br>` +
+        `<span class="token-sub">${f(t.perHour)} / hour${t.cost ? ' · unlock ' + f(t.cost) : ''}</span></span>` +
+        `<span class="token-state">${t.level === s.level ? 'active' : t.level < s.level ? 'done' : 'locked'}</span>`;
+      list.appendChild(li);
+    });
+  }
+
+  function onNeonUpgrade() {
+    const res = Neon.upgrade();
+    if (!res.ok) { UI.toast(res.reason, 'err'); renderNeon(); return; }
+    renderNeon();
+    UI.toast(`Tier ${res.level} unlocked — ${res.name}. ${res.burned} NEON burned.`, 'ok');
+  }
+
   /* ================= tokens ================= */
 
   async function renderTokens() {
     const net = currentNet();
+    const readOnly = Chains.isNonEvm(net);
     const ul = $('#token-list');
     ul.innerHTML = '';
 
@@ -519,7 +709,7 @@
     });
     ul.appendChild(netBalEl);
     (async () => {
-      const bal = await W.fetchNativeBalance(net, S.address);
+      const bal = await Chains.fetchNativeBalance(net, displayAddr());
       const vEl = netBalEl.querySelector('.ta-v');
       if (vEl) vEl.textContent = bal === null ? '—' : W.fmtAmount(bal);
       // fiat for native row
@@ -535,6 +725,16 @@
         }
       } catch(e){}
     })();
+
+    if (readOnly) {
+      // Token balances on non-EVM chains need a different contract reader,
+      // so only the native coin is listed there.
+      const note = document.createElement('li');
+      note.className = 'hint token-note';
+      note.textContent = net.name + ' shows the native coin only in this build.';
+      ul.appendChild(note);
+      return;
+    }
 
     const tokens = Store.getTokens(net.chainId);
     // ensure prices for tokens are fetched in parallel with balances
@@ -644,6 +844,9 @@
     const hist = Store.getHistory(S.address, currentNet().chainId);
     ul.innerHTML = '';
     $('#tx-empty').style.display = hist.length ? 'none' : '';
+    // Non-EVM chains cannot broadcast in this build, so there is nothing to
+    // track and no EVM receipt to poll for.
+    if (Chains.isNonEvm(currentNet())) return;
 
     hist.forEach(tx => {
       const li = document.createElement('li');
@@ -685,10 +888,12 @@
   /* ================= receive ================= */
 
   function openReceive() {
+    const addr = displayAddr();
     $('#receive-net').textContent = currentNet().name;
-    $('#recv-addr').textContent = S.address;
+    $('#recv-addr').textContent = addr || '—';
     UI.openModal('modal-receive');
-    UI.renderQR($('#qr-box'), S.address);
+    if (addr) UI.renderQR($('#qr-box'), addr);
+    else $('#qr-box').innerHTML = '<p class="hint">No address for this network.</p>';
   }
 
   /* ================= send ================= */
@@ -700,6 +905,11 @@
   }
 
   function openSend(token) {
+    const net = currentNet();
+    if (Chains.isNonEvm(net)) {
+      UI.toast(net.name + ' is receive-only in this build', 'err');
+      return;
+    }
     S.sendTokenCtx = token;
     $('#send-to').value = '';
     $('#send-amount').value = '';
@@ -998,14 +1208,16 @@
   /* ================= exports ================= */
 
   NW.App = {
-    S, boot, bootFail,
+    S, boot, bootFail, displayAddr, currentNet,
     startCreate, startImport, finishPasswordStep, onPasswordInput,
     onImportInput, doUnlock, forgetWallet, lockWallet,
     checkVerify, startVerify,
     renderNetworkList, switchNet, saveCustomNetwork,
     renderTokens, onTokenAddrInput, saveToken, renderActivity,
+    renderNeon, onNeonUpgrade,
     openReceive, openSend, updateSendFee, onMaxAmount, updateReviewEnabled,
     openReview, executeSend, armHoldButton, revealSecret, deleteWallet,
-    refreshBalance, loadCmcHint, saveCmcKey, clearCmcKey, saveCmcProxy, clearCmcProxy
+    refreshBalance, loadCmcHint, saveCmcKey, clearCmcKey, saveCmcProxy, clearCmcProxy,
+    saveAutoLock
   };
 })();

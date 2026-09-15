@@ -1,13 +1,15 @@
 /* ============================================================
-   NeonWallet — network catalog (EVM)
-   Presets use public RPC endpoints; users can add any custom
-   EVM network from the UI. All values client-side only.
+   NeonWallet — network catalog (EVM + non-EVM presets)
+   EVM presets use public RPC endpoints; users can add any custom
+   EVM network from the UI. Tron is non-EVM (type:'tron') and is
+   handled by NW.Chains. All values client-side only.
    ============================================================ */
 (function () {
   'use strict';
 
   const PRESETS = [
     // ---------- mainnets ----------
+    { chainId: 728126428,  name: 'Tron',               symbol: 'TRX',   rpc: 'https://api.trongrid.io',                      explorer: 'https://tronscan.org',                 color: '#ff0657', type: 'tron' },
     { chainId: 1,          name: 'Ethereum',           symbol: 'ETH',   rpc: 'https://ethereum-rpc.publicnode.com',            explorer: 'https://etherscan.io',                 color: '#7f9cf5' },
     { chainId: 56,         name: 'BNB Smart Chain',    symbol: 'BNB',   rpc: 'https://bsc-rpc.publicnode.com',                 explorer: 'https://bscscan.com',                  color: '#f3ba2f' },
     { chainId: 137,        name: 'Polygon',            symbol: 'POL',   rpc: 'https://polygon-bor-rpc.publicnode.com',         explorer: 'https://polygonscan.com',              color: '#a277ff' },

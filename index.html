@@ -175,6 +175,7 @@
     <nav class="tabs" role="tablist">
       <button class="tab active" data-tab="tokens">Tokens</button>
       <button class="tab" data-tab="activity">Activity</button>
+      <button class="tab" data-tab="neon">Neon Token</button>
     </nav>
 
     <section class="tabpane active" id="tab-tokens">
@@ -185,6 +186,38 @@
     <section class="tabpane" id="tab-activity">
       <ul class="list" id="tx-list"></ul>
       <div class="empty" id="tx-empty">No transactions yet.<br>Your activity on this network will appear here.</div>
+    </section>
+
+    <!-- -------- Neon Token: local demo miner, not a real asset -------- -->
+    <section class="tabpane" id="tab-neon">
+      <div class="warn-card neon-disclaimer">
+        <b>Demo token, off-chain.</b> NEON is a local simulation used to show tiered
+        rewards. It is not a blockchain asset, has no contract and no market value.
+      </div>
+
+      <div class="balance-card neon-card">
+        <span class="net-badge">Mining tier <b id="neon-tier-name">Starter</b></span>
+        <div class="balance-main"><span id="neon-balance">0</span><small>NEON</small></div>
+        <div class="balance-fiat ok" id="neon-rate">+0 / hour</div>
+        <div class="balance-addr" id="neon-mined">0 mined in total</div>
+      </div>
+
+      <dl class="kv kv--card" id="neon-progress-list">
+        <dt>Current tier</dt><dd id="neon-cur-tier">Starter</dd>
+        <dt>Reward rate</dt><dd id="neon-cur-rate">0.005 / hour</dd>
+        <dt>Approx. per day</dt><dd id="neon-per-day">0.12 / day</dd>
+        <dt>Next tier</dt><dd id="neon-next-name">Bronze</dd>
+        <dt>Upgrade cost</dt><dd id="neon-next-cost">0.25 NEON (burned)</dd>
+        <dt>Next tier rate</dt><dd id="neon-next-rate">0.01 / hour</dd>
+      </dl>
+
+      <div class="neon-progress"><i id="neon-progress-bar"></i></div>
+      <p class="hint center" id="neon-progress-hint">Earn 0.25 NEON to unlock Bronze.</p>
+
+      <button class="btn btn-primary btn-lg" id="btn-neon-upgrade" disabled>Upgrade tier</button>
+      <p class="hint center">Rewards accrue once per full hour, including while the app is closed. Upgrading burns the cost and starts the new rate immediately.</p>
+
+      <ul class="list" id="neon-tiers-list"></ul>
     </section>
   </section>
 
@@ -302,6 +335,19 @@
       </ul>
       <div class="settings-prices" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
         <label class="field">
+          <span>Auto-lock after inactivity</span>
+          <select id="autolock-min">
+            <option value="1">1 minute</option>
+            <option value="5">5 minutes</option>
+            <option value="15">15 minutes</option>
+            <option value="30">30 minutes</option>
+            <option value="0">Never</option>
+          </select>
+          <em class="hint">The wallet also locks instantly when you switch apps or leave the tab, so the signer never stays exposed.</em>
+        </label>
+      </div>
+      <div class="settings-prices" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+        <label class="field">
           <span>CoinMarketCap API key <span style="text-transform:none;font-weight:400;letter-spacing:0;color:var(--muted)">— optional</span></span>
           <input id="cmc-key" type="password" autocomplete="off" spellcheck="false" placeholder="Paste CMC Pro API key">
           <em class="hint">Stored locally only. If empty, prices come from CoinGecko (free). With CMC key, CoinMarketCap is used.</em>
@@ -355,7 +401,9 @@
 <script src="js/networks.js"></script>
 <script src="js/storage.js"></script>
 <script src="js/wallet.js"></script>
+<script src="js/chains.js"></script>
 <script src="js/prices.js"></script>
+<script src="js/neon.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/app.js"></script>
 <script src="js/events.js"></script>

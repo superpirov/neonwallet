@@ -16,6 +16,7 @@
   // symbol -> CoinGecko id (canonical)
   const NATIVE_GECKO_IDS = {
     'ETH':   'ethereum',
+    'TRX':   'tron',
     'BNB':   'binancecoin',
     'POL':   'polygon-ecosystem-token',
     'MATIC': 'polygon-ecosystem-token',

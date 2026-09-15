@@ -8,11 +8,13 @@
   const K = {
     vault: 'nw.vault',            // encrypted wallet blob {v, kdf, salt, iv, ct, type, addr}
     address: 'nw.address',        // plain address for pre-unlock display
+    tronAddress: 'nw.tronAddress',// non-EVM (Tron) address derived from the same seed
     backedUp: 'nw.backedUp',      // '1' once user passed seed verification
     selected: 'nw.selectedChain', // chainId number as string
     customNets: 'nw.customNets',  // JSON array of networks
     tokens: 'nw.tokens',          // map chainId -> [{address,symbol,decimals}]
-    history: 'nw.history'         // map `${addr}:${chainId}` -> [tx]
+    history: 'nw.history',        // map `${addr}:${chainId}` -> [tx]
+    autolock: 'nw.autolockMin'    // idle minutes before auto-lock (0 = never)
   };
 
   function read(key, fallback) {
@@ -42,6 +44,18 @@
 
     getAddress()        { return read(K.address, null); },
     setAddress(addr)    { write(K.address, addr); },
+
+    getTronAddress()     { return read(K.tronAddress, null); },
+    setTronAddress(addr) { write(K.tronAddress, addr); },
+
+    // idle auto-lock: minutes of inactivity, 0 disables it
+    getAutoLockMin() {
+      const v = read(K.autolock, null);
+      if (v === null) return 5;          // sensible default: lock after 5 min
+      const n = Number(v);
+      return Number.isFinite(n) && n >= 0 ? n : 5;
+    },
+    setAutoLockMin(min) { write(K.autolock, Math.max(0, Number(min) || 0)); },
 
     isBackedUp()     { return read(K.backedUp, false); },
     setBackedUp()    { write(K.backedUp, true); },

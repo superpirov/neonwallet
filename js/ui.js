@@ -10,8 +10,13 @@
 
   /* ---------- screens ---------- */
   function showScreen(id) {
-    $$('.screen').forEach(s => s.classList.toggle('active', s.id === id));
+    $('.screen').forEach(s => s.classList.toggle('active', s.id === id));
     window.scrollTo({ top: 0 });
+  }
+
+  function currentScreen() {
+    const el = $('.screen.active');
+    return el ? el.id : null;
   }
 
   /* ---------- modals ---------- */
@@ -122,7 +127,7 @@
   }
 
   const UI = {
-    $, $$, showScreen, openModal, closeModal, toast, toastWithLink,
+    $, $, showScreen, currentScreen, openModal, closeModal, toast, toastWithLink,
     loading, copyText, renderQR, setDisabled, val, status
   };
 
