@@ -10,7 +10,7 @@
 
   /* ---------- screens ---------- */
   function showScreen(id) {
-    $('.screen').forEach(s => s.classList.toggle('active', s.id === id));
+    $$('.screen').forEach(s => s.classList.toggle('active', s.id === id));
     window.scrollTo({ top: 0 });
   }
 

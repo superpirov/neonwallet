@@ -14,8 +14,14 @@
     const { $, $$ } = UI;
 
     /* ---------- welcome ---------- */
-    $('#btn-create').addEventListener('click', App.startCreate);
-    $('#btn-import').addEventListener('click', App.startImport);
+    $('#btn-create').addEventListener('click', () => {
+      if (!initialized) { console.error('App not initialized'); return; }
+      App.startCreate();
+    });
+    $('#btn-import').addEventListener('click', () => {
+      if (!initialized) { console.error('App not initialized'); return; }
+      App.startImport();
+    });
 
     // generic back buttons
     $$('[data-nav]').forEach(b =>
@@ -162,11 +168,6 @@
       const { UI, App } = NW;
       if (!UI || !App) {
         console.warn('NeonWallet: waiting for UI/App...');
-        setTimeout(tryWire, 50);
-        return;
-      }
-      // Check if DOM is fully ready
-      if (document.readyState !== 'complete') {
         setTimeout(tryWire, 50);
         return;
       }
