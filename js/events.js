@@ -4,11 +4,14 @@
 (function () {
   'use strict';
 
-  const NW = window.NW || {};
-  const { UI, App } = NW;
-  const { $, $$ } = UI;
-
   function wire() {
+    const NW = window.NW || {};
+    const { UI, App } = NW;
+    if (!UI || !App) {
+      console.error('NeonWallet: UI or App not found during wiring');
+      return;
+    }
+    const { $, $$ } = UI;
 
     /* ---------- welcome ---------- */
     $('#btn-create').addEventListener('click', App.startCreate);
@@ -158,8 +161,10 @@
       wire();
     } catch (e) {
       console.error('NeonWallet: event wiring failed', e);
+      const NW = window.NW || {};
       if (NW.UI && NW.UI.toast) NW.UI.toast('UI init error — see console', 'err');
     }
-    NW.App.boot();
+    const NW = window.NW || {};
+    if (NW.App) NW.App.boot();
   });
 })();
