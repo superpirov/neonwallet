@@ -103,6 +103,7 @@
     }));
 
     /* ---------- neon token (demo miner) ---------- */
+    $('#btn-neon-claim').addEventListener('click', App.onNeonClaim);
     $('#btn-neon-upgrade').addEventListener('click', App.onNeonUpgrade);
 
     /* ---------- tokens ---------- */

@@ -125,26 +125,40 @@ await t('evm-addr-unchanged', () =>
   NW.Chains.isValidAddress({ chainId: 1 }, '0x9858EfFD232B4033E47d90003D41EC34EcaEda94') === true &&
   NW.Chains.addressFor({ chainId: 1 }, 'x', 'key', '0xPASS') === '0xPASS');
 
-/* ---------- Neon Token (demo miner) ---------- */
+/* ---------- Neon Token (demo miner, claim model) ---------- */
 await t('neon-tiers', () => NW.Neon.TIERS.length === 5 && NW.Neon.TIERS[4].name === 'Diamond');
 
-await t('neon-accrue-hourly', () => {
+await t('neon-claim-intervals', () =>
+  NW.Neon.TIERS.map(t => t.claimHours).join(',') === '1,3,6,12,24');
+
+await t('neon-drip-and-cap', () => {
   NW.Neon.reset();
-  NW.Neon.accrue();                                  // stamps the clock
-  localStorage.setItem('nw.neon.lastAccrualTs', JSON.stringify(Date.now() - 10 * NW.Neon.HOUR));
-  const earned = NW.Neon.accrue();
-  const ok = Math.abs(earned - 0.05) < 1e-9 && Math.abs(NW.Neon.getBalance() - 0.05) < 1e-9;
+  NW.Neon.accrue();                                    // starts the cycle
+  const H = NW.Neon.HOUR;
+  localStorage.setItem('nw.neon.cycleStart', JSON.stringify(Date.now() - 30 * 60 * 1000));
+  const half = NW.Neon.getPending();                   // ~0.0025 after 30 min
+  localStorage.setItem('nw.neon.cycleStart', JSON.stringify(Date.now() - 5 * H));
+  const capped = NW.Neon.getPending();                 // capped at 0.005
+  const ok = Math.abs(half - 0.0025) < 1e-9 && Math.abs(capped - 0.005) < 1e-9
+    && NW.Neon.isReady() && NW.Neon.getBalance() === 0; // dripping never touches balance
   NW.Neon.reset();
-  return ok || ('earned:' + earned);
+  return ok || ('half:' + half + ' capped:' + capped);
 });
 
-await t('neon-partial-hour-zero', () => {
+await t('neon-claim-flow', () => {
   NW.Neon.reset();
   NW.Neon.accrue();
-  localStorage.setItem('nw.neon.lastAccrualTs', JSON.stringify(Date.now() - 35 * 60 * 1000));
-  const earned = NW.Neon.accrue();
+  const H = NW.Neon.HOUR;
+  localStorage.setItem('nw.neon.cycleStart', JSON.stringify(Date.now() - 30 * 60 * 1000));
+  const early = NW.Neon.claim();                       // not ready yet
+  localStorage.setItem('nw.neon.cycleStart', JSON.stringify(Date.now() - 2 * H));
+  const full = NW.Neon.claim();                        // full cycle -> balance
+  const ok = early.ok === false && full.ok === true
+    && Math.abs(full.claimed - 0.005) < 1e-9
+    && Math.abs(NW.Neon.getBalance() - 0.005) < 1e-9
+    && NW.Neon.isReady() === false;                    // new cycle started
   NW.Neon.reset();
-  return earned === 0;
+  return ok || JSON.stringify({ early, full, bal: NW.Neon.getBalance() });
 });
 
 await t('neon-upgrade-burns', () => {

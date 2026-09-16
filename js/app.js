@@ -44,6 +44,7 @@
     verifyPicks: [],
     pollTimer: null,
     neonTimer: null,
+    neonTicker: null,    // 1s live drip ticker for the neon tab
     idleTimer: null,
     lastActivity: Date.now(),
     holdRAF: null
@@ -186,6 +187,7 @@
     S.tronAddress = null;
     stopPolling();
     stopIdleWatch();
+    stopNeonTicker();
     UI.closeModal();
     $('#unlock-pass').value = '';
     $('#unlock-addr').textContent = Store.getAddress() || '';
@@ -658,6 +660,13 @@
     if (!Neon) return;
     const s = Neon.stats();
     const f = v => Number(v).toFixed(v >= 1 ? 2 : 3).replace(/\.?0+$/, '') || '0';
+    // Pending drips continuously — show up to 6 decimals so the
+    // dripping is visible live.
+    const fp = v => {
+      let str = Number(v).toFixed(6);
+      if (str.indexOf('.') !== -1) str = str.replace(/0+$/, '').replace(/\.$/, '');
+      return str === '' ? '0' : str;
+    };
 
     $('#neon-balance').textContent = f(s.balance);
     $('#neon-tier-name').textContent = s.tier.name;
@@ -666,10 +675,11 @@
     $('#neon-cur-tier').textContent = s.tier.name + ' · L' + s.level;
     $('#neon-cur-rate').textContent = f(s.perHour) + ' / hour';
     $('#neon-per-day').textContent = f(s.perDay) + ' / day';
+    $('#neon-per-claim').textContent = f(s.capPerClaim) + ' / ' + s.claimHours + 'h';
+
+    updateNeonLive(s, fp);
 
     const upgradeBtn = $('#btn-neon-upgrade');
-    const bar = $('#neon-progress-bar');
-    const hint = $('#neon-progress-hint');
 
     if (s.next.maxed) {
       $('#neon-next-name').textContent = '—';
@@ -677,8 +687,6 @@
       $('#neon-next-rate').textContent = '—';
       upgradeBtn.disabled = true;
       upgradeBtn.textContent = 'Top tier reached';
-      bar.style.width = '100%';
-      hint.textContent = 'Diamond is the highest tier — you are mining at the best rate.';
     } else {
       const n = s.next;
       $('#neon-next-name').textContent = n.next.name + ' · L' + n.next.level;
@@ -687,11 +695,7 @@
       upgradeBtn.disabled = !n.affordable;
       upgradeBtn.textContent = n.affordable
         ? 'Upgrade to ' + n.next.name
-        : 'Need ' + f(n.cost - s.balance) + ' more NEON';
-      bar.style.width = Math.min(100, (s.balance / n.cost) * 100).toFixed(1) + '%';
-      hint.textContent = n.affordable
-        ? 'Ready to upgrade — ' + f(n.cost) + ' NEON will be burned.'
-        : 'Earn ' + f(n.cost) + ' NEON to unlock ' + n.next.name + '.';
+        : 'Need ' + f(n.cost - s.balance - s.pending) + ' more NEON';
     }
 
     const list = $('#neon-tiers-list');
@@ -703,10 +707,91 @@
       li.innerHTML =
         `<i class="token-ic neon-tier-ic">L${t.level}</i>` +
         `<span class="token-meta"><span class="token-name">${t.name}</span><br>` +
-        `<span class="token-sub">${f(t.perHour)} / hour${t.cost ? ' · unlock ' + f(t.cost) : ''}</span></span>` +
+        `<span class="token-sub">${f(t.perHour)} / hour · claim / ${t.claimHours}h${t.cost ? ' · unlock ' + f(t.cost) : ''}</span></span>` +
         `<span class="token-state">${t.level === s.level ? 'active' : t.level < s.level ? 'done' : 'locked'}</span>`;
       list.appendChild(li);
     });
+
+    startNeonTicker();
+  }
+
+  /** Live part of the neon tab: pending drip, countdown, claim state. */
+  function updateNeonLive(s, fp) {
+    s = s || (Neon && Neon.stats());
+    if (!s) return;
+    if (!fp) fp = v => {
+      let str = Number(v).toFixed(6);
+      if (str.indexOf('.') !== -1) str = str.replace(/0+$/, '').replace(/\.$/, '');
+      return str === '' ? '0' : str;
+    };
+    const f = v => Number(v).toFixed(v >= 1 ? 2 : 3).replace(/\.?0+$/, '') || '0';
+
+    const pendEl = $('#neon-pending');
+    if (pendEl) pendEl.textContent = fp(s.pending);
+    const hoursEl = $('#neon-claim-hours');
+    if (hoursEl) hoursEl.textContent = s.claimHours + 'h';
+    const hintEl = $('#neon-claim-hint');
+    if (hintEl) {
+      hintEl.textContent = s.ready
+        ? 'Cycle full — dripping paused. Press Claim!'
+        : 'Dripping… ready in ~' + fmtCountdown(s.msLeft);
+      hintEl.classList.toggle('ok', s.ready);
+    }
+
+    const claimBtn = $('#btn-neon-claim');
+    if (claimBtn) {
+      claimBtn.disabled = !s.ready;
+      claimBtn.textContent = s.ready
+        ? 'Claim ' + f(s.pending) + ' NEON'
+        : 'Claim in ~' + fmtCountdown(s.msLeft);
+    }
+
+    const bar = $('#neon-progress-bar');
+    if (bar) bar.style.width = (s.progress * 100).toFixed(1) + '%';
+    const hint = $('#neon-progress-hint');
+    if (hint) {
+      if (s.next.maxed) {
+        hint.textContent = s.ready
+          ? 'Diamond cycle full — claim your ' + f(s.pending) + ' NEON.'
+          : 'Diamond is the highest tier — dripping ' + f(s.perHour) + ' / hour.';
+      } else {
+        hint.textContent = s.ready
+          ? 'Cycle full — claim ' + f(s.pending) + ' NEON to restart dripping.'
+          : 'Claim cycle: ' + f(s.capPerClaim) + ' NEON every ' + s.claimHours + 'h.';
+      }
+    }
+  }
+
+  function fmtCountdown(ms) {
+    const total = Math.max(0, Math.ceil(ms / 1000));
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const sec = total % 60;
+    if (h > 0) return h + 'h ' + m + 'm';
+    if (m > 0) return m + 'm ' + sec + 's';
+    return sec + 's';
+  }
+
+  /** 1s ticker so the dripping pending amount moves live. */
+  function startNeonTicker() {
+    stopNeonTicker();
+    S.neonTicker = setInterval(() => {
+      if (UI.currentScreen() !== 'screen-main') return;
+      const pane = $('#tab-neon');
+      if (!pane || !pane.classList.contains('active')) return;
+      updateNeonLive();
+    }, 1000);
+  }
+  function stopNeonTicker() {
+    if (S.neonTicker) clearInterval(S.neonTicker);
+    S.neonTicker = null;
+  }
+
+  function onNeonClaim() {
+    const res = Neon.claim();
+    if (!res.ok) { UI.toast(res.reason, 'err'); renderNeon(); return; }
+    renderNeon();
+    UI.toast(`Claimed ${res.claimed} NEON ✨`, 'ok');
   }
 
   function onNeonUpgrade() {
@@ -1240,7 +1325,7 @@
     checkVerify, startVerify,
     renderNetworkList, switchNet, saveCustomNetwork,
     renderTokens, onTokenAddrInput, saveToken, renderActivity,
-    renderNeon, onNeonUpgrade,
+    renderNeon, onNeonUpgrade, onNeonClaim,
     openReceive, openSend, updateSendFee, onMaxAmount, updateReviewEnabled,
     openReview, executeSend, armHoldButton, revealSecret, deleteWallet,
     refreshBalance, loadCmcHint, saveCmcKey, clearCmcKey, saveCmcProxy, clearCmcProxy,
