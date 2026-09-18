@@ -12,6 +12,7 @@
 <script src="js/storage.js"></script>
 <script src="js/wallet.js"></script>
 <script src="js/chains.js"></script>
+<script src="js/icons.js"></script>
 <script src="js/prices.js"></script>
 <script src="js/neon.js"></script>
 <script src="js/ui.js"></script>
@@ -170,6 +171,37 @@ await t('neon-upgrade-burns', () => {
     Math.abs(NW.Neon.getBalance() - 0.05) < 1e-9 && NW.Neon.getLevel() === 2;
   NW.Neon.reset();
   return ok || JSON.stringify({ blocked, up, bal: NW.Neon.getBalance() });
+});
+
+/* ---------- Trust Wallet assets (logos) ---------- */
+await t('icons-native-url', () =>
+  NW.Icons.nativeLogos({ chainId: 1 })[0] ===
+    'https://assets-cdn.trustwallet.com/blockchains/ethereum/info/logo.png' &&
+  NW.Icons.nativeLogos({ chainId: 56 })[0] ===
+    'https://assets-cdn.trustwallet.com/blockchains/smartchain/info/logo.png' &&
+  NW.Icons.nativeLogos({ chainId: 100 })[0] ===
+    'https://assets-cdn.trustwallet.com/blockchains/xdai/info/logo.png' &&
+  NW.Icons.nativeLogos({ chainId: 999999 }).length === 0);
+
+await t('icons-token-url-checksum', () =>
+  NW.Icons.tokenLogos({ chainId: 1 }, '0xdac17f958d2ee523a2206206994597c13d831ec7')[0] ===
+    'https://assets-cdn.trustwallet.com/blockchains/ethereum/assets/0xdAC17F958D2ee523a2206206994597C13D831ec7/logo.png' &&
+  NW.Icons.tokenLogos({ chainId: 1 }, 'not-an-address').length === 0);
+
+await t('icons-info-url', () =>
+  NW.Icons.tokenInfoUrl({ chainId: 137 }, '0x2791bca1f2de4661ed88a30c99a7a9449aa84174') ===
+    'https://assets-cdn.trustwallet.com/blockchains/polygon/assets/0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174/info.json');
+
+await t('icons-create-fallback', () => {
+  const el = NW.Icons.createIcon({ urls: [], letters: 'US', style: 'background:red' });
+  return el.tagName === 'I' && el.querySelector('.ic-letters').textContent === 'US' &&
+    !el.querySelector('img');
+});
+
+await t('icons-create-img', () => {
+  const el = NW.Icons.createIcon({ urls: ['https://example.com/a.png'], letters: 'US' });
+  const img = el.querySelector('img.ic-img');
+  return !!img && img.getAttribute('src') === 'https://example.com/a.png';
 });
 
 document.getElementById('results').textContent = JSON.stringify(R);

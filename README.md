@@ -11,6 +11,7 @@
 - **30+ built-in networks** — Ethereum, BNB Chain, Polygon, Arbitrum, Optimism, Base, zkSync Era, Linea, Scroll, Avalanche, Fantom, Gnosis, Sonic, Celo, Cronos, Moonbeam, Kaia, Metis, Core, PulseChain, Zora, Taiko + popular testnets
 - **Add any custom EVM network** — RPC URL is tested live before saving; custom networks can be removed anytime
 - **Native transfers & ERC-20 tokens** — add custom tokens by contract address, balances per network
+- **Trust Wallet assets** — coin and token logos plus token metadata (official name, description, website) load from the public [trustwallet/assets](https://github.com/trustwallet/assets) repo (CDN with GitHub fallback, letter avatars when missing)
 - **Send flow done right** — fee estimation before signing, hold-to-send confirmation, explorer links, local activity history with pending → confirmed status
 - **Receive** — scannable QR code + copyable address
 - **Tron network (read-only)** — the Tron address is derived from the same seed on the `m/44'/195'/0'/0/0` path, balance is read live from TronGrid. Receiving works; sending is disabled in this build.

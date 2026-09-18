@@ -386,7 +386,24 @@ body {
   width: 38px; height: 38px; border-radius: 13px; flex: 0 0 auto;
   display: grid; place-items: center; font: 700 13px var(--font-display); color: #0a1018;
   background: var(--tc, linear-gradient(135deg, var(--mint), var(--blue)));
+  position: relative; overflow: hidden;
 }
+/* Trust Wallet logo layered over the letter avatar; removes itself on error */
+.token-ic .ic-img, .net-logo .ic-img, .tw-logo .ic-img {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; border-radius: inherit; background: var(--surface-2);
+}
+/* Trust Wallet metadata block in the add-token modal */
+.tw-meta {
+  display: flex; align-items: center; gap: 12px; padding: 12px 14px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md);
+}
+.tw-logo { width: 38px; height: 38px; flex: 0 0 auto; position: relative; }
+.tw-info { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.tw-info b { font-size: 13.5px; }
+.tw-info span { font-size: 11.5px; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.tw-info a { font-size: 11.5px; color: var(--mint); text-decoration: none; }
+.tw-src { font-size: 10.5px; color: var(--muted); text-align: right; }
 .token-meta { min-width: 0; }
 .token-name { font-weight: 600; font-size: 14px; }
 .token-sub { font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -467,6 +484,7 @@ body {
   width: 34px; height: 34px; border-radius: 11px; flex: 0 0 auto;
   display: grid; place-items: center; font: 700 13px var(--font-display); color: #0a1018;
   background: var(--nc, var(--mint)); opacity: .92;
+  position: relative; overflow: hidden;
 }
 .net-item .net-info { min-width: 0; }
 .net-item .net-nm { font-weight: 600; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

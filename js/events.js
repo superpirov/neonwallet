@@ -110,6 +110,7 @@
     $('#btn-add-token').addEventListener('click', () => {
       $('#token-addr').value = '';
       $('#token-preview').hidden = true;
+      if (App.hideTwMeta) App.hideTwMeta();
       UI.status($('#token-status'), '');
       UI.setDisabled($('#btn-token-save'), true);
       UI.openModal('modal-token');

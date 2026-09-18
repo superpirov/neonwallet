@@ -554,9 +554,9 @@
         const li = document.createElement('button');
         li.className = 'net-item' + (sel ? ' selected' : '');
         li.innerHTML =
-          `<i class="net-logo" style="--nc:${net.color}">${net.name.charAt(0).toUpperCase()}</i>` +
           `<span class="net-info"><span class="net-nm"></span><br>` +
           `<span class="net-sym">${net.symbol} · ${net.chainId}</span></span>`;
+        li.prepend(netIconEl(net));
         li.querySelector('.net-nm').textContent = net.name;
         if (sel) {
           const c = document.createElement('span');
@@ -580,6 +580,24 @@
       e.textContent = 'No networks match your search.';
       list.appendChild(e);
     }
+  }
+
+  /** Network icon for the network picker (TW logo + letter fallback). */
+  function netIconEl(net) {
+    const Icons = (window.NW && NW.Icons) || null;
+    if (!Icons) {
+      const i = document.createElement('i');
+      i.className = 'net-logo';
+      i.setAttribute('style', '--nc:' + net.color);
+      i.textContent = net.name.charAt(0).toUpperCase();
+      return i;
+    }
+    return Icons.createIcon({
+      cls: 'net-logo',
+      urls: Icons.nativeLogos(net),
+      letters: net.name.charAt(0).toUpperCase(),
+      style: '--nc:' + net.color
+    });
   }
 
   function deleteNetBtn(net) {
@@ -811,6 +829,7 @@
 
     const netBalEl = tokenRowEl({
       iconBg: `linear-gradient(135deg, ${net.color}, rgba(255,255,255,.35))`,
+      iconUrls: ((window.NW && NW.Icons) || null) ? NW.Icons.nativeLogos(net) : [],
       name: net.symbol,
       sub: net.name + ' · native',
       amount: undefined,
@@ -856,6 +875,7 @@
       catch (e) { console.warn('[token]', t.symbol, e.message); }
       const row = tokenRowEl({
         iconBg: 'linear-gradient(135deg,#ab90ff,#7fb2ff)',
+        iconUrls: ((window.NW && NW.Icons) || null) ? NW.Icons.tokenLogos(net, t.address) : [],
         name: t.symbol,
         sub: W.shortAddr(t.address, 6) + ' · ERC-20',
         amount: bal,
@@ -893,10 +913,10 @@
     const li = document.createElement('li');
     li.className = 'token-row';
     li.innerHTML =
-      `<i class="token-ic" style="background:${o.iconBg}">${o.name.slice(0, 2).toUpperCase()}</i>` +
       `<span class="token-meta"><span class="token-name"></span><br><span class="token-sub"></span></span>` +
       `<span class="token-amt"><span class="ta-v">${o.loading ? '…' : '—'}</span><small>${o.symbol}</small><span class="token-fiat"></span></span>` +
       `<button class="token-send" title="Send">&#8593;</button>`;
+    li.prepend(tokenIconEl(o.name, o.iconBg, o.iconUrls));
     li.querySelector('.token-name').textContent = o.name;
     li.querySelector('.token-sub').textContent = o.sub;
     if (o.amount !== undefined && !o.loading) {
@@ -905,6 +925,26 @@
     li.querySelector('.token-send').addEventListener('click', o.onClickSend);
     if (o.removable) li.addEventListener('contextmenu', e => { e.preventDefault(); o.onRemove(); });
     return li;
+  }
+
+  /**
+   * Token / coin icon: Trust Wallet logo with letter-avatar fallback.
+   * `urls` come from NW.Icons (possibly empty → letters only).
+   */
+  function tokenIconEl(name, bg, urls) {
+    const Icons = (window.NW && NW.Icons) || null;
+    if (!Icons) {
+      const i = document.createElement('i');
+      i.className = 'token-ic';
+      i.setAttribute('style', 'background:' + bg);
+      i.textContent = String(name || '?').slice(0, 2).toUpperCase();
+      return i;
+    }
+    return Icons.createIcon({
+      urls,
+      letters: String(name || '?').slice(0, 2).toUpperCase(),
+      style: 'background:' + bg
+    });
   }
 
   /* ---------- add token ---------- */
@@ -916,6 +956,7 @@
     S.tokenPreview = null;
     UI.setDisabled($('#btn-token-save'), true);
     prev.hidden = true;
+    hideTwMeta();
     UI.status(st, '');
     if (!addr) return;
     if (!W.isAddress(addr)) return UI.status(st, 'Not a valid contract address', 'err');
@@ -932,9 +973,52 @@
       UI.status(st, '');
       S.tokenPreview = info;
       UI.setDisabled($('#btn-token-save'), false);
+      // Best-effort enrichment from Trust Wallet assets (logo, official
+      // name, description, website). On-chain data stays authoritative.
+      enrichTwMeta(currentNet(), addr).catch(() => {});
     } catch (e) {
       UI.status(st, 'No ERC-20 contract found here on ' + currentNet().name, 'err');
     }
+  }
+
+  /** Fill the Trust Wallet metadata block in the add-token modal. */
+  async function enrichTwMeta(net, address) {
+    const Icons = (window.NW && NW.Icons) || null;
+    const box = $('#token-tw');
+    if (!Icons || !box) return;
+    // Ignore stale responses if the user kept typing.
+    const stamp = (S.twStamp = (S.twStamp || 0) + 1);
+    const meta = await Icons.fetchTokenInfo(net, address);
+    if (stamp !== S.twStamp || !meta) return;
+    const logoBox = $('#tw-logo');
+    logoBox.innerHTML = '';
+    logoBox.appendChild(Icons.createIcon({
+      urls: Icons.tokenLogos(net, address),
+      letters: String(meta.symbol || '?').slice(0, 2).toUpperCase()
+    }));
+    $('#tw-name').textContent = meta.name || meta.symbol || '';
+    $('#tw-desc').textContent = meta.description || '';
+    const site = $('#tw-site');
+    if (meta.website) {
+      site.textContent = String(meta.website).replace(/^https?:\/\//, '').replace(/\/$/, '');
+      site.href = meta.website;
+      site.hidden = false;
+    } else {
+      site.textContent = '';
+      site.removeAttribute('href');
+      site.hidden = true;
+    }
+    box.hidden = false;
+    const src = $('#token-tw-src');
+    if (src) src.hidden = false;
+  }
+
+  function hideTwMeta() {
+    S.twStamp = (S.twStamp || 0) + 1; // invalidate in-flight enrichment
+    const box = $('#token-tw');
+    if (box) box.hidden = true;
+    const src = $('#token-tw-src');
+    if (src) src.hidden = true;
   }
 
   function saveToken() {
@@ -1029,9 +1113,31 @@
     UI.setDisabled($('#btn-send-review'), true);
     $('#send-title').textContent = token ? 'Send ' + token.symbol : 'Send';
     const a = activeAsset();
-    const iconStyle = token ? '' : ` style="background:linear-gradient(135deg,${currentNet().color},rgba(255,255,255,.35))"`;
-    $('#send-asset').innerHTML =
-      `<i class="token-ic"${iconStyle}>${a.symbol.slice(0, 2)}</i><b>${a.symbol}</b><small>on ${currentNet().name}</small>`;
+    const chip = $('#send-asset');
+    chip.innerHTML = '';
+    const Icons = (window.NW && NW.Icons) || null;
+    const urls = Icons
+      ? (token ? Icons.tokenLogos(net, token.address) : Icons.nativeLogos(net))
+      : [];
+    chip.appendChild(Icons
+      ? Icons.createIcon({
+          urls,
+          letters: a.symbol.slice(0, 2).toUpperCase(),
+          style: token ? '' : `background:linear-gradient(135deg,${net.color},rgba(255,255,255,.35))`
+        })
+      : (() => {
+          const i = document.createElement('i');
+          i.className = 'token-ic';
+          if (!token) i.setAttribute('style', `background:linear-gradient(135deg,${net.color},rgba(255,255,255,.35))`);
+          i.textContent = a.symbol.slice(0, 2).toUpperCase();
+          return i;
+        })());
+    const b = document.createElement('b');
+    b.textContent = a.symbol;
+    const sm = document.createElement('small');
+    sm.textContent = 'on ' + net.name;
+    chip.appendChild(b);
+    chip.appendChild(sm);
     $('#send-fee').textContent = '—';
     UI.openModal('modal-send');
     setTimeout(() => $('#send-to').focus(), 250);
@@ -1324,7 +1430,7 @@
     onImportInput, doUnlock, forgetWallet, lockWallet,
     checkVerify, startVerify,
     renderNetworkList, switchNet, saveCustomNetwork,
-    renderTokens, onTokenAddrInput, saveToken, renderActivity,
+    renderTokens, onTokenAddrInput, saveToken, hideTwMeta, renderActivity,
     renderNeon, onNeonUpgrade, onNeonClaim,
     openReceive, openSend, updateSendFee, onMaxAmount, updateReviewEnabled,
     openReview, executeSend, armHoldButton, revealSecret, deleteWallet,
